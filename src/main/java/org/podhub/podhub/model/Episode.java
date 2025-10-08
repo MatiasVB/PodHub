@@ -32,4 +32,5 @@ public class Episode {
     private String transcript;
     private Instant createdAt;
     private Instant updatedAt;
+    private Boolean isPublic;
 }

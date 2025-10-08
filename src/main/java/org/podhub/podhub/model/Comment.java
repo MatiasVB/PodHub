@@ -5,7 +5,9 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import org.podhub.podhub.model.enums.CommentStatus;
+//import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.annotation.Id;
+//import org.springframework.data.annotation.LastModifiedDate;
 import org.springframework.data.mongodb.core.index.CompoundIndex;
 import org.springframework.data.mongodb.core.index.CompoundIndexes;
 import org.springframework.data.mongodb.core.index.Indexed;
@@ -22,6 +24,8 @@ import java.time.Instant;
     @CompoundIndex(name = "target_created", def = "{'target.id': 1, 'createdAt': -1}"),
     @CompoundIndex(name = "parent_idx", def = "{'parentId': 1}")
 })
+
+
 public class Comment {
     @Id
     private String id;
@@ -31,6 +35,8 @@ public class Comment {
     private String content;
     private String parentId;
     private CommentStatus status;
+    //@CreatedDate
     private Instant createdAt;
+    //@LastModifiedDate
     private Instant editedAt;
 }

@@ -26,7 +26,7 @@ public class ListeningProgress {
 
     private String userId;
     private String episodeId;
-    private Integer positionSec;
+    private Integer positionSeconds;
     private Boolean completed;
-    private Instant updatedAt;
+    private Instant createdAt;
 }

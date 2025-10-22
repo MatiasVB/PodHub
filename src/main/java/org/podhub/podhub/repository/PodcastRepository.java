@@ -1,36 +1,52 @@
 package org.podhub.podhub.repository;
 
 import org.podhub.podhub.model.Podcast;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
 import org.springframework.data.mongodb.repository.MongoRepository;
+import org.springframework.data.mongodb.repository.Query;
 import org.springframework.stereotype.Repository;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 
 @Repository
 public interface PodcastRepository extends MongoRepository<Podcast, String> {
 
+    // ========== Búsquedas individuales ==========
+
     Optional<Podcast> findBySlug(String slug);
 
     boolean existsBySlug(String slug);
 
-    List<Podcast> findByCreatorId(String creatorId);
+    // ========== Paginación cursor-based: Todos los podcasts ==========
 
-    Page<Podcast> findByCreatorId(String creatorId, Pageable pageable);
+    @Query(value = "{}", sort = "{ 'createdAt': -1 }")
+    List<Podcast> findFirstPodcasts(int limit);
 
-    List<Podcast> findByCategory(String category);
+    @Query(value = "{ 'createdAt': { $lt: ?0 } }", sort = "{ 'createdAt': -1 }")
+    List<Podcast> findNextPodcasts(Instant cursor, int limit);
 
-    Page<Podcast> findByCategory(String category, Pageable pageable);
+    // ========== Paginación cursor-based: Podcasts públicos ==========
 
-    List<Podcast> findByIsPublicTrue();
+    @Query(value = "{ 'isPublic': true }", sort = "{ 'createdAt': -1 }")
+    List<Podcast> findFirstPublicPodcasts(int limit);
 
-    Page<Podcast> findByIsPublicTrue(Pageable pageable);
+    @Query(value = "{ 'isPublic': true, 'createdAt': { $lt: ?0 } }", sort = "{ 'createdAt': -1 }")
+    List<Podcast> findNextPublicPodcasts(Instant cursor, int limit);
 
-    List<Podcast> findByCreatorIdAndIsPublicTrue(String creatorId);
+    // ========== Paginación cursor-based: Por creador ==========
 
-    Page<Podcast> findByTitleContainingIgnoreCase(String title, Pageable pageable);
+    @Query(value = "{ 'creatorId': ?0 }", sort = "{ 'createdAt': -1 }")
+    List<Podcast> findFirstPodcastsByCreator(String creatorId, int limit);
 
-    long countByCreatorId(String creatorId);
+    @Query(value = "{ 'creatorId': ?0, 'createdAt': { $lt: ?1 } }", sort = "{ 'createdAt': -1 }")
+    List<Podcast> findNextPodcastsByCreator(String creatorId, Instant cursor, int limit);
+
+    // ========== Paginación cursor-based: Búsqueda por título ==========
+
+    @Query(value = "{ 'title': { $regex: ?0, $options: 'i' } }", sort = "{ 'createdAt': -1 }")
+    List<Podcast> findFirstPodcastsByTitle(String title, int limit);
+
+    @Query(value = "{ 'title': { $regex: ?0, $options: 'i' }, 'createdAt': { $lt: ?1 } }", sort = "{ 'createdAt': -1 }")
+    List<Podcast> findNextPodcastsByTitle(String title, Instant cursor, int limit);
 }

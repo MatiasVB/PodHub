@@ -2,13 +2,13 @@ package org.podhub.podhub.service;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.podhub.podhub.dto.PaginatedResponse;
 import org.podhub.podhub.model.Podcast;
 import org.podhub.podhub.repository.PodcastRepository;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
+import java.util.List;
 import java.util.Optional;
 
 @Slf4j
@@ -61,39 +61,72 @@ public class PodcastService {
     }
 
     /**
-     * Obtiene todos los podcasts con paginación
-     * Ejemplo: PageRequest.of(0, 10) = primera página, 10 elementos
+     * Obtiene todos los podcasts con paginación cursor-based
+     *
+     * @param cursor Timestamp del último elemento (null para primera página)
+     * @param limit  Número máximo de elementos a retornar
+     * @return Respuesta paginada con cursor para siguiente página
      */
-    public Page<Podcast> findAll(Pageable pageable) {
-        log.debug("Finding all podcasts with pagination");
-        return podcastRepository.findAll(pageable);
+    public PaginatedResponse<Podcast> findAll(Instant cursor, int limit) {
+        log.debug("Finding all podcasts with cursor: {} and limit: {}", cursor, limit);
+
+        // Agregar 1 al límite para detectar si hay más elementos
+        List<Podcast> podcasts;
+        if (cursor == null) {
+            podcasts = podcastRepository.findFirstPodcasts(limit + 1);
+        } else {
+            podcasts = podcastRepository.findNextPodcasts(cursor, limit + 1);
+        }
+
+        return buildPaginatedResponse(podcasts, limit);
     }
 
     /**
-     * Obtiene los podcasts de un creador específico con paginación
-     * Útil para dashboard de usuario
+     * Obtiene los podcasts de un creador específico con paginación cursor-based
      */
-    public Page<Podcast> findByCreatorId(String creatorId, Pageable pageable) {
-        log.debug("Finding podcasts by creator id: {} with pagination", creatorId);
-        return podcastRepository.findByCreatorId(creatorId, pageable);
+    public PaginatedResponse<Podcast> findByCreatorId(String creatorId, Instant cursor, int limit) {
+        log.debug("Finding podcasts by creator: {} with cursor: {} and limit: {}", creatorId, cursor, limit);
+
+        List<Podcast> podcasts;
+        if (cursor == null) {
+            podcasts = podcastRepository.findFirstPodcastsByCreator(creatorId, limit + 1);
+        } else {
+            podcasts = podcastRepository.findNextPodcastsByCreator(creatorId, cursor, limit + 1);
+        }
+
+        return buildPaginatedResponse(podcasts, limit);
     }
 
     /**
-     * Obtiene solo los podcasts públicos con paginación
-     * Para catálogo público y página principal
+     * Obtiene solo los podcasts públicos con paginación cursor-based
      */
-    public Page<Podcast> findPublicPodcasts(Pageable pageable) {
-        log.debug("Finding all public podcasts with pagination");
-        return podcastRepository.findByIsPublicTrue(pageable);
+    public PaginatedResponse<Podcast> findPublicPodcasts(Instant cursor, int limit) {
+        log.debug("Finding public podcasts with cursor: {} and limit: {}", cursor, limit);
+
+        List<Podcast> podcasts;
+        if (cursor == null) {
+            podcasts = podcastRepository.findFirstPublicPodcasts(limit + 1);
+        } else {
+            podcasts = podcastRepository.findNextPublicPodcasts(cursor, limit + 1);
+        }
+
+        return buildPaginatedResponse(podcasts, limit);
     }
 
     /**
-     * Busca podcasts por título (case-insensitive) con paginación
-     * Para implementar barra de búsqueda
+     * Busca podcasts por título con paginación cursor-based
      */
-    public Page<Podcast> searchByTitle(String title, Pageable pageable) {
-        log.debug("Searching podcasts by title containing: {}", title);
-        return podcastRepository.findByTitleContainingIgnoreCase(title, pageable);
+    public PaginatedResponse<Podcast> searchByTitle(String title, Instant cursor, int limit) {
+        log.debug("Searching podcasts by title: {} with cursor: {} and limit: {}", title, cursor, limit);
+
+        List<Podcast> podcasts;
+        if (cursor == null) {
+            podcasts = podcastRepository.findFirstPodcastsByTitle(title, limit + 1);
+        } else {
+            podcasts = podcastRepository.findNextPodcastsByTitle(title, cursor, limit + 1);
+        }
+
+        return buildPaginatedResponse(podcasts, limit);
     }
 
     /**
@@ -135,5 +168,39 @@ public class PodcastService {
 
         podcastRepository.deleteById(id);
         log.info("Podcast deleted successfully with id: {}", id);
+    }
+
+    /**
+     * Construye la respuesta paginada a partir de una lista de podcasts
+     *
+     * @param podcasts Lista con limit+1 elementos
+     * @param limit    Límite real solicitado
+     * @return PaginatedResponse con nextCursor si hay más elementos
+     */
+    private PaginatedResponse<Podcast> buildPaginatedResponse(List<Podcast> podcasts, int limit) {
+        boolean hasMore = podcasts.size() > limit;
+
+        // Si hay más elementos, solo retornamos los primeros 'limit'
+        List<Podcast> data;
+        if (hasMore) {
+            data = podcasts.subList(0, limit);
+        } else {
+            data = podcasts;
+        }
+
+        // Calcular el nextCursor (createdAt del último elemento)
+        String nextCursor = null;
+        if (hasMore) {
+            if (!data.isEmpty()) {
+                nextCursor = data.get(data.size() - 1).getCreatedAt().toString();
+            }
+        }
+
+        return PaginatedResponse.<Podcast>builder()
+                .data(data)
+                .nextCursor(nextCursor)
+                .hasMore(hasMore)
+                .count(data.size())
+                .build();
     }
 }

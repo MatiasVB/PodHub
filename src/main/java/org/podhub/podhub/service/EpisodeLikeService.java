@@ -3,6 +3,7 @@ package org.podhub.podhub.service;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.podhub.podhub.dto.PaginatedResponse;
+import org.podhub.podhub.exception.ConflictException;
 import org.podhub.podhub.model.EpisodeLike;
 import org.podhub.podhub.repository.EpisodeLikeRepository;
 import org.springframework.stereotype.Service;
@@ -16,27 +17,42 @@ import java.util.Optional;
 @RequiredArgsConstructor
 public class EpisodeLikeService {
 
+    private static final int DEFAULT_MAX_LIMIT = 100;
+
     private final EpisodeLikeRepository episodeLikeRepository;
 
     public EpisodeLike like(String userId, String episodeId) {
+        ensureNotBlank(userId, "userId");
+        ensureNotBlank(episodeId, "episodeId");
+
         log.debug("User {} liking episode {}", userId, episodeId);
+
         if (episodeLikeRepository.existsByUserIdAndEpisodeId(userId, episodeId)) {
-            throw new IllegalArgumentException("Like already exists");
+            throw new ConflictException("Ya existe un like para este episodio por este usuario");
         }
+
         EpisodeLike like = EpisodeLike.builder()
                 .userId(userId)
                 .episodeId(episodeId)
                 .createdAt(Instant.now())
                 .build();
+
         EpisodeLike saved = episodeLikeRepository.save(like);
         log.info("Like created {}", saved.getId());
         return saved;
     }
 
     public void unlike(String userId, String episodeId) {
+        ensureNotBlank(userId, "userId");
+        ensureNotBlank(episodeId, "episodeId");
+
         log.debug("User {} unliking episode {}", userId, episodeId);
-        Optional<EpisodeLike> existing = episodeLikeRepository.findByUserIdAndEpisodeId(userId, episodeId);
-        existing.ifPresent(episodeLikeRepository::delete);
+
+        EpisodeLike existing = episodeLikeRepository.findByUserIdAndEpisodeId(userId,episodeId)
+                .orElseThrow(() -> new IllegalArgumentException("No existe un like para este episodio por este usuario"));
+
+        episodeLikeRepository.delete(existing);
+        log.info("Like deleted (user {}, episode {})", userId, episodeId);
     }
 
     public Optional<EpisodeLike> findById(String id) {
@@ -52,6 +68,9 @@ public class EpisodeLikeService {
      * @return Respuesta paginada con cursor para siguiente página
      */
     public PaginatedResponse<EpisodeLike> findByEpisodeId(String episodeId, Instant cursor, int limit) {
+        ensureNotBlank(episodeId, "episodeId");
+        validateLimit(limit);
+
         log.debug("Finding likes by episode: {} with cursor: {} and limit: {}", episodeId, cursor, limit);
 
         List<EpisodeLike> likes;
@@ -68,6 +87,9 @@ public class EpisodeLikeService {
      * Obtiene los likes de un usuario con paginación cursor-based
      */
     public PaginatedResponse<EpisodeLike> findByUserId(String userId, Instant cursor, int limit) {
+        ensureNotBlank(userId, "userId");
+        validateLimit(limit);
+
         log.debug("Finding likes by user: {} with cursor: {} and limit: {}", userId, cursor, limit);
 
         List<EpisodeLike> likes;
@@ -81,6 +103,7 @@ public class EpisodeLikeService {
     }
 
     public long countByEpisodeId(String episodeId) {
+        ensureNotBlank(episodeId, "episodeId");
         return episodeLikeRepository.countByEpisodeId(episodeId);
     }
 
@@ -104,10 +127,8 @@ public class EpisodeLikeService {
 
         // Calcular el nextCursor (createdAt del último elemento)
         String nextCursor = null;
-        if (hasMore) {
-            if (!data.isEmpty()) {
-                nextCursor = data.get(data.size() - 1).getCreatedAt().toString();
-            }
+        if (hasMore && !data.isEmpty()) {
+            nextCursor = data.get(data.size() - 1).getCreatedAt().toString();
         }
 
         return PaginatedResponse.<EpisodeLike>builder()
@@ -116,5 +137,19 @@ public class EpisodeLikeService {
                 .hasMore(hasMore)
                 .count(data.size())
                 .build();
+    }
+
+    /* ======================= Helpers ======================= */
+
+    private void ensureNotBlank(String value, String fieldName) {
+        if (value == null || value.trim().isEmpty()) {
+            throw new IllegalArgumentException(fieldName + " no puede estar vacío");
+        }
+    }
+
+    private void validateLimit(int limit) {
+        if (limit <= 0 || limit > DEFAULT_MAX_LIMIT) {
+            throw new IllegalArgumentException("El límite debe estar entre 1 y " + DEFAULT_MAX_LIMIT);
+        }
     }
 }

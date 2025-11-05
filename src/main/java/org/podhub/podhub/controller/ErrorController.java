@@ -1,6 +1,7 @@
 package org.podhub.podhub.controller;
 
 import lombok.extern.slf4j.Slf4j;
+import org.podhub.podhub.dto.ErrorResponse;
 import org.podhub.podhub.exception.BadRequestException;
 import org.podhub.podhub.exception.ConflictException;
 import org.podhub.podhub.exception.ResourceNotFoundException;
@@ -20,7 +21,7 @@ import java.util.Map;
 
 @Slf4j
 @RestControllerAdvice
-public class GlobalExceptionHandler {
+public class ErrorController {
 
     // 404 - Recurso no encontrado en vuestros servicios
     @ExceptionHandler(ResourceNotFoundException.class)

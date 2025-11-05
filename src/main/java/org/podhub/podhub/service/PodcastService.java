@@ -6,6 +6,8 @@ import org.podhub.podhub.dto.PaginatedResponse;
 import org.podhub.podhub.model.Podcast;
 import org.podhub.podhub.repository.PodcastRepository;
 import org.springframework.stereotype.Service;
+import org.podhub.podhub.exception.ConflictException;
+import org.podhub.podhub.exception.ResourceNotFoundException;
 
 import java.time.Instant;
 import java.util.List;
@@ -26,7 +28,7 @@ public class PodcastService {
         log.debug("Creating new podcast with title: {}", podcast.getTitle());
 
         if (podcastRepository.existsBySlug(podcast.getSlug())) {
-            throw new IllegalArgumentException("Podcast with slug '" + podcast.getSlug() + "' already exists");
+            throw new ConflictException("Podcast with slug '" + podcast.getSlug() + "' already exists");
         }
 
         Instant now = Instant.now();
@@ -137,12 +139,12 @@ public class PodcastService {
         log.debug("Updating podcast with id: {}", id);
 
         Podcast existingPodcast = podcastRepository.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("Podcast not found with id: " + id));
+                .orElseThrow(() -> new ResourceNotFoundException("Podcast not found with id: " + id));
 
         // Verificar si el slug cambió y si ya existe
         if (!existingPodcast.getSlug().equals(updatedPodcast.getSlug())) {
             if (podcastRepository.existsBySlug(updatedPodcast.getSlug())) {
-                throw new IllegalArgumentException("Podcast with slug '" + updatedPodcast.getSlug() + "' already exists");
+                throw new ConflictException("Podcast with slug '" + updatedPodcast.getSlug() + "' already exists");
             }
         }
 
@@ -163,7 +165,7 @@ public class PodcastService {
         log.debug("Deleting podcast with id: {}", id);
 
         if (!podcastRepository.existsById(id)) {
-            throw new IllegalArgumentException("Podcast not found with id: " + id);
+            throw new ResourceNotFoundException("Podcast not found with id: " + id);
         }
 
         podcastRepository.deleteById(id);

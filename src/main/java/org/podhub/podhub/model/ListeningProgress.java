@@ -29,4 +29,5 @@ public class ListeningProgress {
     private Integer positionSeconds;
     private Boolean completed;
     private Instant createdAt;
+    private Instant updatedAt;
 }

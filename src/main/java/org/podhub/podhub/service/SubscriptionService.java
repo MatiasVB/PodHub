@@ -16,24 +16,35 @@ import java.util.Optional;
 @RequiredArgsConstructor
 public class SubscriptionService {
 
+    private static final int DEFAULT_MAX_LIMIT = 100;
+
     private final SubscriptionRepository subscriptionRepository;
 
     public Subscription subscribe(String userId, String podcastId) {
+        ensureNotBlank(userId, "userId");
+        ensureNotBlank(podcastId, "podcastId");
+
         log.debug("User {} subscribing to podcast {}", userId, podcastId);
+
         if (subscriptionRepository.existsByUserIdAndPodcastId(userId, podcastId)) {
-            throw new IllegalArgumentException("Subscription already exists");
+            throw new IllegalArgumentException("La suscripción ya existe para este usuario y podcast");
         }
+
         Subscription sub = Subscription.builder()
                 .userId(userId)
                 .podcastId(podcastId)
                 .createdAt(Instant.now())
                 .build();
+
         Subscription saved = subscriptionRepository.save(sub);
         log.info("Subscription created {}", saved.getId());
         return saved;
     }
 
     public void unsubscribe(String userId, String podcastId) {
+        ensureNotBlank(userId, "userId");
+        ensureNotBlank(podcastId, "podcastId");
+
         log.debug("User {} unsubscribing from podcast {}", userId, podcastId);
         subscriptionRepository.findByUserIdAndPodcastId(userId, podcastId)
                 .ifPresent(subscriptionRepository::delete);
@@ -52,6 +63,9 @@ public class SubscriptionService {
      * @return Respuesta paginada con cursor para siguiente página
      */
     public PaginatedResponse<Subscription> findByUserId(String userId, Instant cursor, int limit) {
+        ensureNotBlank(userId, "userId");
+        validateLimit(limit);
+
         log.debug("Finding subscriptions by user: {} with cursor: {} and limit: {}", userId, cursor, limit);
 
         List<Subscription> subscriptions;
@@ -68,6 +82,9 @@ public class SubscriptionService {
      * Obtiene los suscriptores de un podcast con paginación cursor-based
      */
     public PaginatedResponse<Subscription> findByPodcastId(String podcastId, Instant cursor, int limit) {
+        ensureNotBlank(podcastId, "podcastId");
+        validateLimit(limit);
+
         log.debug("Finding subscriptions by podcast: {} with cursor: {} and limit: {}", podcastId, cursor, limit);
 
         List<Subscription> subscriptions;
@@ -81,6 +98,7 @@ public class SubscriptionService {
     }
 
     public long countByPodcastId(String podcastId) {
+        ensureNotBlank(podcastId, "podcastId");
         return subscriptionRepository.countByPodcastId(podcastId);
     }
 
@@ -116,5 +134,19 @@ public class SubscriptionService {
                 .hasMore(hasMore)
                 .count(data.size())
                 .build();
+    }
+
+    /*================= Helpers =================*/
+
+    private void ensureNotBlank(String value, String fieldName) {
+        if (value == null || value.trim().isEmpty()) {
+            throw new IllegalArgumentException(fieldName + " no puede estar vacío");
+        }
+    }
+
+    private void validateLimit(int limit) {
+        if (limit <= 0 || limit > DEFAULT_MAX_LIMIT) {
+            throw new IllegalArgumentException("Limit must be between 1 and " + DEFAULT_MAX_LIMIT);
+        }
     }
 }

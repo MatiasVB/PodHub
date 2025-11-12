@@ -6,6 +6,7 @@ import org.podhub.podhub.dto.PaginatedResponse;
 import org.podhub.podhub.exception.BadRequestException;
 import org.podhub.podhub.model.Comment;
 import org.podhub.podhub.model.enums.CommentStatus;
+import org.podhub.podhub.model.enums.CommentTargetType;
 import org.podhub.podhub.service.CommentService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -81,7 +82,7 @@ public class CommentController {
             @RequestParam(required = false) String cursor,
             @RequestParam(defaultValue = "20") int limit) {
         Instant cursorInstant = cursor != null ? Instant.parse(cursor) : null;
-        PaginatedResponse<Comment> response = commentService.findByPodcastId(podcastId, cursorInstant, limit);
+        PaginatedResponse<Comment> response = commentService.findByTarget(CommentTargetType.PODCAST, podcastId, cursorInstant, limit);
         return ResponseEntity.ok(response);
     }
 
@@ -95,7 +96,7 @@ public class CommentController {
             @RequestParam(required = false) String cursor,
             @RequestParam(defaultValue = "20") int limit) {
         Instant cursorInstant = cursor != null ? Instant.parse(cursor) : null;
-        PaginatedResponse<Comment> response = commentService.findByEpisodeId(episodeId, cursorInstant, limit);
+        PaginatedResponse<Comment> response = commentService.findByTarget(CommentTargetType.EPISODE, episodeId, cursorInstant, limit);
         return ResponseEntity.ok(response);
     }
 
@@ -137,7 +138,7 @@ public class CommentController {
     }
 
 
-    /**
+    /*
      * GET /api/comments?cursor=2024-01-15T10:30:00Z&limit=20
      * Lista todos los comentarios con paginación cursor-based
      *

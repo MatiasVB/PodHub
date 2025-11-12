@@ -6,38 +6,21 @@ import org.springframework.data.annotation.Id;
 import org.springframework.data.annotation.LastModifiedDate;
 import org.springframework.data.mongodb.core.index.Indexed;
 import org.springframework.data.mongodb.core.mapping.Document;
-import org.podhub.podhub.model.enums.UserStatus;
 
 import java.time.Instant;
-import java.util.HashSet;
-import java.util.Set;
 
 @Data
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-@Document(collection = "users")
-public class User {
+@Document(collection = "permissions")
+public class Permission {
 
     @Id
-    private String id; // genera UUID en el servicio al crear
+    private String id; // UUID
 
     @Indexed(unique = true)
-    private String username;
-
-    @Indexed(unique = true)
-    private String email;
-
-    private String passwordHash;
-
-    private String displayName;
-    private String avatarUrl;
-
-    // Referencias a Role por id (sin DBRef)
-    @Builder.Default
-    private Set<String> roleIds = new HashSet<>();
-
-    private UserStatus status;
+    private String name; // p.ej. "EPISODE_READ", "EPISODE_WRITE"
 
     @CreatedDate
     private Instant createdAt;

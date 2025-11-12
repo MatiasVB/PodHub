@@ -40,12 +40,18 @@ public class ErrorController {
     // 409 - Índices únicos de Mongo: email/username, slug, (userId, podcastId), (userId, episodeId)...
     @ExceptionHandler({DuplicateKeyException.class, DataIntegrityViolationException.class, ConflictException.class})
     public ResponseEntity<ErrorResponse> handleConflict(RuntimeException ex, HttpServletRequest req) {
-        log.warn("409 Conflict: {}", ex.getMessage());
+        log.warn("=== 409 CONFLICT HANDLER TRIGGERED ===");
+        log.warn("Exception type: {}", ex.getClass().getName());
+        log.warn("Exception message: {}", ex.getMessage());
+        log.warn("Full stack trace:", ex);
+        log.warn("Request URI: {}", req.getRequestURI());
+        log.warn("Request Method: {}", req.getMethod());
+
         return ResponseEntity.status(HttpStatus.CONFLICT)
                 .body(new ErrorResponse(
                         HttpStatus.CONFLICT.value(),
                         HttpStatus.CONFLICT.getReasonPhrase(),
-                        "Duplicate key / conflict",
+                        "Duplicate key / conflict: " + ex.getMessage(),
                         req.getRequestURI(),
                         null
                 ));

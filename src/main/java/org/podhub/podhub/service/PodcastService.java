@@ -28,7 +28,7 @@ public class PodcastService {
         log.debug("Creating new podcast with title: {}", podcast.getTitle());
 
         if (podcastRepository.existsBySlug(podcast.getSlug())) {
-            throw new ConflictException("Podcast with slug '" + podcast.getSlug() + "' already exists");
+            throw new IllegalArgumentException("Podcast with slug '" + podcast.getSlug() + "' already exists");
         }
 
         Instant now = Instant.now();

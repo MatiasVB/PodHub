@@ -23,23 +23,43 @@ public class PodcastService {
      * Valida que el slug sea único y establece fechas automáticamente
      */
     public Podcast createPodcast(Podcast podcast) {
-        log.debug("Creating new podcast with title: {}", podcast.getTitle());
+        log.info("=== CREATE PODCAST DEBUG START ===");
+        log.info("Received podcast object: {}", podcast);
+        log.info("Slug value: [{}]", podcast.getSlug());
+        log.info("Slug is null: {}", podcast.getSlug() == null);
+        log.info("Title: [{}]", podcast.getTitle());
 
-        if (podcastRepository.existsBySlug(podcast.getSlug())) {
+        log.info("Checking existsBySlug for: [{}]", podcast.getSlug());
+        boolean exists = podcastRepository.existsBySlug(podcast.getSlug());
+        log.info("existsBySlug returned: {}", exists);
+
+        if (exists) {
+            log.error("Slug already exists! Throwing IllegalArgumentException");
             throw new IllegalArgumentException("Podcast with slug '" + podcast.getSlug() + "' already exists");
         }
 
+        log.info("Setting timestamps...");
         Instant now = Instant.now();
         podcast.setCreatedAt(now);
         podcast.setUpdatedAt(now);
 
         if (podcast.getIsPublic() == null) {
+            log.info("Setting isPublic to false");
             podcast.setIsPublic(false);
         }
 
-        Podcast saved = podcastRepository.save(podcast);
-        log.info("Podcast created successfully with id: {}", saved.getId());
-        return saved;
+        log.info("About to save podcast to MongoDB...");
+        try {
+            Podcast saved = podcastRepository.save(podcast);
+            log.info("Podcast saved successfully with id: {}", saved.getId());
+            log.info("=== CREATE PODCAST DEBUG END (SUCCESS) ===");
+            return saved;
+        } catch (Exception e) {
+            log.error("=== CREATE PODCAST DEBUG END (ERROR) ===");
+            log.error("Exception type: {}", e.getClass().getName());
+            log.error("Exception message: {}", e.getMessage());
+            throw e;
+        }
     }
 
     /**

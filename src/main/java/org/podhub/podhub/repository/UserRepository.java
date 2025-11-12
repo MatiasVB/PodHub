@@ -24,9 +24,6 @@ public interface UserRepository extends MongoRepository<User, String> {
 
     Page<User> findByRole(UserRole role, Pageable pageable);
 
-    // Si tienes un campo 'name' o 'displayName':
-    Page<User> findByNameContainingIgnoreCase(String name, Pageable pageable);
-
     // ========== Paginación cursor-based: Todos los usuarios ==========
 
     @Query(value = "{}", sort = "{ 'createdAt': -1 }")
@@ -52,10 +49,11 @@ public interface UserRepository extends MongoRepository<User, String> {
     List<User> findNextUsersByRole(UserRole role, Instant cursor, int limit);
 
     // ========== Paginación cursor-based: Búsqueda por nombre ==========
+    // Busca en username O displayName usando $or
 
-    @Query(value = "{ 'name': { $regex: ?0, $options: 'i' } }", sort = "{ 'createdAt': -1 }")
+    @Query(value = "{ $or: [ { 'username': { $regex: ?0, $options: 'i' } }, { 'displayName': { $regex: ?0, $options: 'i' } } ] }", sort = "{ 'createdAt': -1 }")
     List<User> findFirstUsersByName(String name, int limit);
 
-    @Query(value = "{ 'name': { $regex: ?0, $options: 'i' }, 'createdAt': { $lt: ?1 } }", sort = "{ 'createdAt': -1 }")
+    @Query(value = "{ $or: [ { 'username': { $regex: ?0, $options: 'i' } }, { 'displayName': { $regex: ?0, $options: 'i' } } ], 'createdAt': { $lt: ?1 } }", sort = "{ 'createdAt': -1 }")
     List<User> findNextUsersByName(String name, Instant cursor, int limit);
 }

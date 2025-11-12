@@ -19,8 +19,9 @@ public class ListeningProgressService {
 
     private final ListeningProgressRepository listeningProgressRepository;
 
-    public ListeningProgress upsert(String userId, String episodeId, Integer positionSeconds) {
-        log.debug("Upsert progress user={}, episode={}, pos={}s", userId, episodeId, positionSeconds);
+    public ListeningProgress upsert(String userId, String episodeId, int positionSeconds, boolean completed) {
+        log.debug("Upsert progress user={}, episode={}, pos={}s, completed={}", userId, episodeId, positionSeconds, completed);
+
         ListeningProgress progress = listeningProgressRepository
                 .findByUserIdAndEpisodeId(userId, episodeId)
                 .orElse(ListeningProgress.builder()
@@ -30,11 +31,15 @@ public class ListeningProgressService {
                         .build());
 
         progress.setPositionSeconds(positionSeconds);
-        progress.setCreatedAt(Instant.now());
+        progress.setCompleted(completed);
+        progress.setUpdatedAt(Instant.now());
+
         ListeningProgress saved = listeningProgressRepository.save(progress);
-        log.info("Progress saved {}", saved.getId());
+
+        log.info("Progress saved {} (completed={})", saved.getId(), saved.getCompleted());
         return saved;
     }
+
 
     public Optional<ListeningProgress> findById(String id) {
         return listeningProgressRepository.findById(id);
@@ -70,13 +75,19 @@ public class ListeningProgressService {
         return buildPaginatedResponse(progressList, limit);
     }
 
-    public void deleteById(String id) {
-        if (!listeningProgressRepository.existsById(id)) {
-            throw new ResourceNotFoundException("ListeningProgress not found: " + id);
-        }
-        listeningProgressRepository.deleteById(id);
-        log.info("Progress deleted {}", id);
+    public void delete(String userId, String episodeId) {
+        log.debug("Deleting progress for user={}, episode={}", userId, episodeId);
+
+        var progress = listeningProgressRepository
+                .findByUserIdAndEpisodeId(userId, episodeId)
+                .orElseThrow(() ->
+                        new ResourceNotFoundException("ListeningProgress not found for user=" + userId + ", episode=" + episodeId)
+                );
+
+        listeningProgressRepository.delete(progress);
+        log.info("Progress deleted for user={}, episode={}", userId, episodeId);
     }
+
 
     private PaginatedResponse<ListeningProgress> buildPaginatedResponse(List<ListeningProgress> progressList, int limit) {
         boolean hasMore = progressList.size() > limit;

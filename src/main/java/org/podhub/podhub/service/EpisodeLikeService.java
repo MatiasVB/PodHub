@@ -43,6 +43,13 @@ public class EpisodeLikeService {
         episodeLikeRepository.delete(toDelete);
     }
 
+    public boolean exists(String userId, String episodeId) {
+        log.debug("Checking if like exists for user={}, episode={}", userId, episodeId);
+        boolean exists = episodeLikeRepository.existsByUserIdAndEpisodeId(userId, episodeId);
+        log.info("Like exists for user={}, episode={} => {}", userId, episodeId, exists);
+        return exists;
+    }
+
     public Optional<EpisodeLike> findById(String id) {
         return episodeLikeRepository.findById(id);
     }

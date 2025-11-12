@@ -3,6 +3,7 @@ package org.podhub.podhub.service;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.podhub.podhub.dto.PaginatedResponse;
+import org.podhub.podhub.exception.ResourceNotFoundException;
 import org.podhub.podhub.model.Comment;
 import org.podhub.podhub.model.enums.CommentStatus;
 import org.podhub.podhub.model.enums.CommentTargetType;
@@ -34,14 +35,6 @@ public class CommentService {
         return commentRepository.findById(id);
     }
 
-    /**
-     * Obtiene los comentarios de un usuario con paginación cursor-based
-     *
-     * @param userId Usuario que hizo los comentarios
-     * @param cursor Timestamp del último elemento (null para primera página)
-     * @param limit  Número máximo de elementos a retornar
-     * @return Respuesta paginada con cursor para siguiente página
-     */
     public PaginatedResponse<Comment> findByUserId(String userId, Instant cursor, int limit) {
         log.debug("Finding comments by user: {} with cursor: {} and limit: {}", userId, cursor, limit);
 
@@ -55,9 +48,6 @@ public class CommentService {
         return buildPaginatedResponse(comments, limit);
     }
 
-    /**
-     * Obtiene los comentarios de un target específico con paginación cursor-based
-     */
     public PaginatedResponse<Comment> findByTargetId(String targetId, Instant cursor, int limit) {
         log.debug("Finding comments by target: {} with cursor: {} and limit: {}", targetId, cursor, limit);
 
@@ -71,9 +61,6 @@ public class CommentService {
         return buildPaginatedResponse(comments, limit);
     }
 
-    /**
-     * Obtiene los comentarios de un target específico filtrado por tipo con paginación cursor-based
-     */
     public PaginatedResponse<Comment> findByTarget(CommentTargetType type, String targetId, Instant cursor, int limit) {
         log.debug("Finding comments by target type: {} and id: {} with cursor: {} and limit: {}", type, targetId, cursor, limit);
 
@@ -87,9 +74,6 @@ public class CommentService {
         return buildPaginatedResponse(comments, limit);
     }
 
-    /**
-     * Obtiene los comentarios raíz (sin padre) de un target con paginación cursor-based
-     */
     public PaginatedResponse<Comment> findThread(String targetId, Instant cursor, int limit) {
         log.debug("Finding thread comments for target: {} with cursor: {} and limit: {}", targetId, cursor, limit);
 
@@ -103,9 +87,6 @@ public class CommentService {
         return buildPaginatedResponse(comments, limit);
     }
 
-    /**
-     * Obtiene las respuestas a un comentario específico con paginación cursor-based
-     */
     public PaginatedResponse<Comment> findByParent(String parentId, Instant cursor, int limit) {
         log.debug("Finding replies for comment: {} with cursor: {} and limit: {}", parentId, cursor, limit);
 
@@ -119,9 +100,6 @@ public class CommentService {
         return buildPaginatedResponse(comments, limit);
     }
 
-    /**
-     * Obtiene los comentarios por estado con paginación cursor-based
-     */
     public PaginatedResponse<Comment> findByStatus(CommentStatus status, Instant cursor, int limit) {
         log.debug("Finding comments by status: {} with cursor: {} and limit: {}", status, cursor, limit);
 
@@ -141,7 +119,7 @@ public class CommentService {
 
     public Comment updateComment(String id, Comment updated) {
         Comment existing = commentRepository.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("Comment not found: " + id));
+                .orElseThrow(() -> new ResourceNotFoundException("Comment not found: " + id));
         updated.setId(id);
         updated.setCreatedAt(existing.getCreatedAt());
         updated.setEditedAt(Instant.now());
@@ -152,23 +130,15 @@ public class CommentService {
 
     public void deleteComment(String id) {
         if (!commentRepository.existsById(id)) {
-            throw new IllegalArgumentException("Comment not found: " + id);
+            throw new ResourceNotFoundException("Comment not found: " + id);
         }
         commentRepository.deleteById(id);
         log.info("Comment deleted {}", id);
     }
 
-    /**
-     * Construye la respuesta paginada a partir de una lista de comentarios
-     *
-     * @param comments Lista con limit+1 elementos
-     * @param limit    Límite real solicitado
-     * @return PaginatedResponse con nextCursor si hay más elementos
-     */
     private PaginatedResponse<Comment> buildPaginatedResponse(List<Comment> comments, int limit) {
         boolean hasMore = comments.size() > limit;
 
-        // Si hay más elementos, solo retornamos los primeros 'limit'
         List<Comment> data;
         if (hasMore) {
             data = comments.subList(0, limit);
@@ -176,7 +146,6 @@ public class CommentService {
             data = comments;
         }
 
-        // Calcular el nextCursor (createdAt del último elemento)
         String nextCursor = null;
         if (hasMore) {
             if (!data.isEmpty()) {

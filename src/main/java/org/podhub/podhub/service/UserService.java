@@ -3,6 +3,9 @@ package org.podhub.podhub.service;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.podhub.podhub.dto.PaginatedResponse;
+import org.podhub.podhub.exception.BadRequestException;
+import org.podhub.podhub.exception.ConflictException;
+import org.podhub.podhub.exception.ResourceNotFoundException;
 import org.podhub.podhub.model.User;
 import org.podhub.podhub.model.enums.UserRole;
 import org.podhub.podhub.model.enums.UserStatus;
@@ -23,24 +26,32 @@ public class UserService {
     public User createUser(User user) {
         log.debug("Creating user with email {}", user.getEmail());
         if (user.getEmail() == null || user.getEmail().isBlank()) {
-            throw new IllegalArgumentException("Email is required");
+            throw new BadRequestException("Email is required");
         }
         if (userRepository.existsByEmail(user.getEmail())) {
-            throw new IllegalArgumentException("Email already in use");
+            throw new ConflictException("Email already in use: " + user.getEmail());
         }
         Instant now = Instant.now();
         user.setCreatedAt(now);
         user.setUpdatedAt(now);
         User saved = userRepository.save(user);
-        log.info("User created {}", saved.getId());
+        log.info("User created successfully with id: {}", saved.getId());
         return saved;
     }
 
+    /**
+     * Obtiene un usuario por id
+     */
     public Optional<User> findById(String id) {
+        log.debug("Finding user by id: {}", id);
         return userRepository.findById(id);
     }
 
+    /**
+     * Obtiene un usuario por email
+     */
     public Optional<User> findByEmail(String email) {
+        log.debug("Finding user by email: {}", email);
         return userRepository.findByEmail(email);
     }
 
@@ -114,30 +125,35 @@ public class UserService {
     }
 
     public User updateUser(String id, User updated) {
-        User existing = userRepository.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("User not found: " + id));
+        log.debug("Updating user with id: {}", id);
 
-        // Si cambia el email, valida unicidad
-        if (updated.getEmail() != null && !updated.getEmail().equalsIgnoreCase(existing.getEmail())) {
-            if (userRepository.existsByEmail(updated.getEmail())) {
-                throw new IllegalArgumentException("Email already in use");
-            }
+        User existing = userRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found with id: " + id));
+
+        if (updated.getEmail() == null || updated.getEmail().isBlank()) {
+            throw new BadRequestException("Email is required");
+        }
+        if (!updated.getEmail().equalsIgnoreCase(existing.getEmail())
+                && userRepository.existsByEmail(updated.getEmail())) {
+            throw new ConflictException("Email already in use: " + updated.getEmail());
         }
 
         updated.setId(id);
         updated.setCreatedAt(existing.getCreatedAt());
         updated.setUpdatedAt(Instant.now());
+
         User saved = userRepository.save(updated);
-        log.info("User updated {}", id);
+        log.info("User updated successfully with id: {}", saved.getId());
         return saved;
     }
 
     public void deleteUser(String id) {
+        log.debug("Deleting user with id: {}", id);
         if (!userRepository.existsById(id)) {
-            throw new IllegalArgumentException("User not found: " + id);
+            throw new ResourceNotFoundException("User not found with id: " + id);
         }
         userRepository.deleteById(id);
-        log.info("User deleted {}", id);
+        log.info("User deleted successfully with id: {}", id);
     }
 
     /**

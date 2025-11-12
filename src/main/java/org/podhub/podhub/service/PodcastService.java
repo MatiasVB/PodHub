@@ -6,6 +6,8 @@ import org.podhub.podhub.dto.PaginatedResponse;
 import org.podhub.podhub.model.Podcast;
 import org.podhub.podhub.repository.PodcastRepository;
 import org.springframework.stereotype.Service;
+import org.podhub.podhub.exception.ConflictException;
+import org.podhub.podhub.exception.ResourceNotFoundException;
 
 import java.time.Instant;
 import java.util.List;
@@ -23,43 +25,23 @@ public class PodcastService {
      * Valida que el slug sea único y establece fechas automáticamente
      */
     public Podcast createPodcast(Podcast podcast) {
-        log.info("=== CREATE PODCAST DEBUG START ===");
-        log.info("Received podcast object: {}", podcast);
-        log.info("Slug value: [{}]", podcast.getSlug());
-        log.info("Slug is null: {}", podcast.getSlug() == null);
-        log.info("Title: [{}]", podcast.getTitle());
+        log.debug("Creating new podcast with title: {}", podcast.getTitle());
 
-        log.info("Checking existsBySlug for: [{}]", podcast.getSlug());
-        boolean exists = podcastRepository.existsBySlug(podcast.getSlug());
-        log.info("existsBySlug returned: {}", exists);
-
-        if (exists) {
-            log.error("Slug already exists! Throwing IllegalArgumentException");
+        if (podcastRepository.existsBySlug(podcast.getSlug())) {
             throw new IllegalArgumentException("Podcast with slug '" + podcast.getSlug() + "' already exists");
         }
 
-        log.info("Setting timestamps...");
         Instant now = Instant.now();
         podcast.setCreatedAt(now);
         podcast.setUpdatedAt(now);
 
         if (podcast.getIsPublic() == null) {
-            log.info("Setting isPublic to false");
             podcast.setIsPublic(false);
         }
 
-        log.info("About to save podcast to MongoDB...");
-        try {
-            Podcast saved = podcastRepository.save(podcast);
-            log.info("Podcast saved successfully with id: {}", saved.getId());
-            log.info("=== CREATE PODCAST DEBUG END (SUCCESS) ===");
-            return saved;
-        } catch (Exception e) {
-            log.error("=== CREATE PODCAST DEBUG END (ERROR) ===");
-            log.error("Exception type: {}", e.getClass().getName());
-            log.error("Exception message: {}", e.getMessage());
-            throw e;
-        }
+        Podcast saved = podcastRepository.save(podcast);
+        log.info("Podcast created successfully with id: {}", saved.getId());
+        return saved;
     }
 
     /**
@@ -157,12 +139,12 @@ public class PodcastService {
         log.debug("Updating podcast with id: {}", id);
 
         Podcast existingPodcast = podcastRepository.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("Podcast not found with id: " + id));
+                .orElseThrow(() -> new ResourceNotFoundException("Podcast not found with id: " + id));
 
         // Verificar si el slug cambió y si ya existe
         if (!existingPodcast.getSlug().equals(updatedPodcast.getSlug())) {
             if (podcastRepository.existsBySlug(updatedPodcast.getSlug())) {
-                throw new IllegalArgumentException("Podcast with slug '" + updatedPodcast.getSlug() + "' already exists");
+                throw new ConflictException("Podcast with slug '" + updatedPodcast.getSlug() + "' already exists");
             }
         }
 
@@ -183,7 +165,7 @@ public class PodcastService {
         log.debug("Deleting podcast with id: {}", id);
 
         if (!podcastRepository.existsById(id)) {
-            throw new IllegalArgumentException("Podcast not found with id: " + id);
+            throw new ResourceNotFoundException("Podcast not found with id: " + id);
         }
 
         podcastRepository.deleteById(id);

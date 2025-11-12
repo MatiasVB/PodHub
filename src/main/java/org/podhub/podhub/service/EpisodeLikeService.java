@@ -3,6 +3,8 @@ package org.podhub.podhub.service;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.podhub.podhub.dto.PaginatedResponse;
+import org.podhub.podhub.exception.ConflictException;
+import org.podhub.podhub.exception.ResourceNotFoundException;
 import org.podhub.podhub.model.EpisodeLike;
 import org.podhub.podhub.repository.EpisodeLikeRepository;
 import org.springframework.stereotype.Service;
@@ -21,7 +23,7 @@ public class EpisodeLikeService {
     public EpisodeLike like(String userId, String episodeId) {
         log.debug("User {} liking episode {}", userId, episodeId);
         if (episodeLikeRepository.existsByUserIdAndEpisodeId(userId, episodeId)) {
-            throw new IllegalArgumentException("Like already exists");
+            throw new ConflictException("Like already exists");
         }
         EpisodeLike like = EpisodeLike.builder()
                 .userId(userId)
@@ -36,21 +38,15 @@ public class EpisodeLikeService {
     public void unlike(String userId, String episodeId) {
         log.debug("User {} unliking episode {}", userId, episodeId);
         Optional<EpisodeLike> existing = episodeLikeRepository.findByUserIdAndEpisodeId(userId, episodeId);
-        existing.ifPresent(episodeLikeRepository::delete);
+        EpisodeLike toDelete = existing.orElseThrow(() ->
+                new ResourceNotFoundException("Like not found for user and episode"));
+        episodeLikeRepository.delete(toDelete);
     }
 
     public Optional<EpisodeLike> findById(String id) {
         return episodeLikeRepository.findById(id);
     }
 
-    /**
-     * Obtiene los likes de un episodio con paginación cursor-based
-     *
-     * @param episodeId Episodio del que se obtienen los likes
-     * @param cursor    Timestamp del último elemento (null para primera página)
-     * @param limit     Número máximo de elementos a retornar
-     * @return Respuesta paginada con cursor para siguiente página
-     */
     public PaginatedResponse<EpisodeLike> findByEpisodeId(String episodeId, Instant cursor, int limit) {
         log.debug("Finding likes by episode: {} with cursor: {} and limit: {}", episodeId, cursor, limit);
 
@@ -64,9 +60,6 @@ public class EpisodeLikeService {
         return buildPaginatedResponse(likes, limit);
     }
 
-    /**
-     * Obtiene los likes de un usuario con paginación cursor-based
-     */
     public PaginatedResponse<EpisodeLike> findByUserId(String userId, Instant cursor, int limit) {
         log.debug("Finding likes by user: {} with cursor: {} and limit: {}", userId, cursor, limit);
 
@@ -84,17 +77,9 @@ public class EpisodeLikeService {
         return episodeLikeRepository.countByEpisodeId(episodeId);
     }
 
-    /**
-     * Construye la respuesta paginada a partir de una lista de likes
-     *
-     * @param likes Lista con limit+1 elementos
-     * @param limit Límite real solicitado
-     * @return PaginatedResponse con nextCursor si hay más elementos
-     */
     private PaginatedResponse<EpisodeLike> buildPaginatedResponse(List<EpisodeLike> likes, int limit) {
         boolean hasMore = likes.size() > limit;
 
-        // Si hay más elementos, solo retornamos los primeros 'limit'
         List<EpisodeLike> data;
         if (hasMore) {
             data = likes.subList(0, limit);
@@ -102,7 +87,6 @@ public class EpisodeLikeService {
             data = likes;
         }
 
-        // Calcular el nextCursor (createdAt del último elemento)
         String nextCursor = null;
         if (hasMore) {
             if (!data.isEmpty()) {

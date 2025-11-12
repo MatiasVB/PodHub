@@ -3,6 +3,7 @@ package org.podhub.podhub.service;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.podhub.podhub.dto.PaginatedResponse;
+import org.podhub.podhub.exception.ResourceNotFoundException;
 import org.podhub.podhub.model.Episode;
 import org.podhub.podhub.repository.EpisodeRepository;
 import org.springframework.stereotype.Service;
@@ -35,17 +36,9 @@ public class EpisodeService {
         return episodeRepository.findById(id);
     }
 
-    /**
-     * Obtiene todos los episodios con paginación cursor-based
-     *
-     * @param cursor Timestamp del último elemento (null para primera página)
-     * @param limit  Número máximo de elementos a retornar
-     * @return Respuesta paginada con cursor para siguiente página
-     */
     public PaginatedResponse<Episode> findAll(Instant cursor, int limit) {
         log.debug("Finding all episodes with cursor: {} and limit: {}", cursor, limit);
 
-        // Agregar 1 al límite para detectar si hay más elementos
         List<Episode> episodes;
         if (cursor == null) {
             episodes = episodeRepository.findFirstEpisodes(limit + 1);
@@ -56,9 +49,6 @@ public class EpisodeService {
         return buildPaginatedResponse(episodes, limit);
     }
 
-    /**
-     * Obtiene los episodios de un podcast específico con paginación cursor-based
-     */
     public PaginatedResponse<Episode> findByPodcastId(String podcastId, Instant cursor, int limit) {
         log.debug("Finding episodes by podcast: {} with cursor: {} and limit: {}", podcastId, cursor, limit);
 
@@ -72,9 +62,6 @@ public class EpisodeService {
         return buildPaginatedResponse(episodes, limit);
     }
 
-    /**
-     * Busca episodios por título con paginación cursor-based
-     */
     public PaginatedResponse<Episode> searchByTitle(String title, Instant cursor, int limit) {
         log.debug("Searching episodes by title: {} with cursor: {} and limit: {}", title, cursor, limit);
 
@@ -88,9 +75,6 @@ public class EpisodeService {
         return buildPaginatedResponse(episodes, limit);
     }
 
-    /**
-     * Obtiene solo los episodios públicos con paginación cursor-based
-     */
     public PaginatedResponse<Episode> findPublicEpisodes(Instant cursor, int limit) {
         log.debug("Finding public episodes with cursor: {} and limit: {}", cursor, limit);
 
@@ -110,7 +94,7 @@ public class EpisodeService {
 
     public Episode updateEpisode(String id, Episode updated) {
         Episode existing = episodeRepository.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("Episode not found: " + id));
+                .orElseThrow(() -> new ResourceNotFoundException("Episode not found: " + id));
         updated.setId(id);
         updated.setCreatedAt(existing.getCreatedAt());
         updated.setUpdatedAt(Instant.now());
@@ -121,23 +105,15 @@ public class EpisodeService {
 
     public void deleteEpisode(String id) {
         if (!episodeRepository.existsById(id)) {
-            throw new IllegalArgumentException("Episode not found: " + id);
+            throw new ResourceNotFoundException("Episode not found: " + id);
         }
         episodeRepository.deleteById(id);
         log.info("Episode deleted {}", id);
     }
 
-    /**
-     * Construye la respuesta paginada a partir de una lista de episodios
-     *
-     * @param episodes Lista con limit+1 elementos
-     * @param limit    Límite real solicitado
-     * @return PaginatedResponse con nextCursor si hay más elementos
-     */
     private PaginatedResponse<Episode> buildPaginatedResponse(List<Episode> episodes, int limit) {
         boolean hasMore = episodes.size() > limit;
 
-        // Si hay más elementos, solo retornamos los primeros 'limit'
         List<Episode> data;
         if (hasMore) {
             data = episodes.subList(0, limit);
@@ -145,7 +121,6 @@ public class EpisodeService {
             data = episodes;
         }
 
-        // Calcular el nextCursor (createdAt del último elemento)
         String nextCursor = null;
         if (hasMore) {
             if (!data.isEmpty()) {

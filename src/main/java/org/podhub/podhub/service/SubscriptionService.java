@@ -3,6 +3,8 @@ package org.podhub.podhub.service;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.podhub.podhub.dto.PaginatedResponse;
+import org.podhub.podhub.exception.ConflictException;
+import org.podhub.podhub.exception.ResourceNotFoundException;
 import org.podhub.podhub.model.Subscription;
 import org.podhub.podhub.repository.SubscriptionRepository;
 import org.springframework.stereotype.Service;
@@ -21,7 +23,7 @@ public class SubscriptionService {
     public Subscription subscribe(String userId, String podcastId) {
         log.debug("User {} subscribing to podcast {}", userId, podcastId);
         if (subscriptionRepository.existsByUserIdAndPodcastId(userId, podcastId)) {
-            throw new IllegalArgumentException("Subscription already exists");
+            throw new ConflictException("Subscription already exists");
         }
         Subscription sub = Subscription.builder()
                 .userId(userId)
@@ -35,22 +37,16 @@ public class SubscriptionService {
 
     public void unsubscribe(String userId, String podcastId) {
         log.debug("User {} unsubscribing from podcast {}", userId, podcastId);
-        subscriptionRepository.findByUserIdAndPodcastId(userId, podcastId)
-                .ifPresent(subscriptionRepository::delete);
+        Optional<Subscription> existing = subscriptionRepository.findByUserIdAndPodcastId(userId, podcastId);
+        Subscription toDelete = existing.orElseThrow(() ->
+                new ResourceNotFoundException("Subscription not found for user and podcast"));
+        subscriptionRepository.delete(toDelete);
     }
 
     public Optional<Subscription> findById(String id) {
         return subscriptionRepository.findById(id);
     }
 
-    /**
-     * Obtiene las suscripciones de un usuario con paginación cursor-based
-     *
-     * @param userId Usuario que tiene las suscripciones
-     * @param cursor Timestamp del último elemento (null para primera página)
-     * @param limit  Número máximo de elementos a retornar
-     * @return Respuesta paginada con cursor para siguiente página
-     */
     public PaginatedResponse<Subscription> findByUserId(String userId, Instant cursor, int limit) {
         log.debug("Finding subscriptions by user: {} with cursor: {} and limit: {}", userId, cursor, limit);
 
@@ -64,9 +60,6 @@ public class SubscriptionService {
         return buildPaginatedResponse(subscriptions, limit);
     }
 
-    /**
-     * Obtiene los suscriptores de un podcast con paginación cursor-based
-     */
     public PaginatedResponse<Subscription> findByPodcastId(String podcastId, Instant cursor, int limit) {
         log.debug("Finding subscriptions by podcast: {} with cursor: {} and limit: {}", podcastId, cursor, limit);
 
@@ -84,17 +77,9 @@ public class SubscriptionService {
         return subscriptionRepository.countByPodcastId(podcastId);
     }
 
-    /**
-     * Construye la respuesta paginada a partir de una lista de suscripciones
-     *
-     * @param subscriptions Lista con limit+1 elementos
-     * @param limit         Límite real solicitado
-     * @return PaginatedResponse con nextCursor si hay más elementos
-     */
     private PaginatedResponse<Subscription> buildPaginatedResponse(List<Subscription> subscriptions, int limit) {
         boolean hasMore = subscriptions.size() > limit;
 
-        // Si hay más elementos, solo retornamos los primeros 'limit'
         List<Subscription> data;
         if (hasMore) {
             data = subscriptions.subList(0, limit);
@@ -102,7 +87,6 @@ public class SubscriptionService {
             data = subscriptions;
         }
 
-        // Calcular el nextCursor (createdAt del último elemento)
         String nextCursor = null;
         if (hasMore) {
             if (!data.isEmpty()) {

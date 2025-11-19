@@ -1,4 +1,4 @@
-package org.podhub.podhub.config.security;
+package org.podhub.podhub.security;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;

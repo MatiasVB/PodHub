@@ -20,6 +20,10 @@ public interface UserRepository extends MongoRepository<User, String> {
 
     boolean existsByEmail(String email);
 
+    Optional<User> findByUsername(String username);
+
+    boolean existsByUsername(String username);
+
     Page<User> findByStatus(UserStatus status, Pageable pageable);
 
     Page<User> findByRole(UserRole role, Pageable pageable);

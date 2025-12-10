@@ -8,6 +8,7 @@ import org.springframework.data.mongodb.core.index.Indexed;
 import org.springframework.data.mongodb.core.mapping.Document;
 import org.podhub.podhub.model.enums.UserStatus;
 
+import java.nio.charset.Charset;
 import java.time.Instant;
 import java.util.HashSet;
 import java.util.Set;

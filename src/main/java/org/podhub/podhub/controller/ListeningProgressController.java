@@ -6,6 +6,7 @@ import org.podhub.podhub.model.ListeningProgress;
 import org.podhub.podhub.service.ListeningProgressService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.Instant;
@@ -22,6 +23,7 @@ public class ListeningProgressController {
      * Crea o actualiza (upsert) el progreso de escucha de un usuario en un episodio
      */
     @PostMapping
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<ListeningProgress> upsertProgress(
             @RequestParam String userId,
             @RequestParam String episodeId,
@@ -36,6 +38,7 @@ public class ListeningProgressController {
      * Obtiene un progreso por ID
      */
     @GetMapping("/{id}")
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<ListeningProgress> getProgressById(@PathVariable String id) {
         return listeningProgressService.findById(id)
                 .map(ResponseEntity::ok)
@@ -47,6 +50,7 @@ public class ListeningProgressController {
      * Obtiene el progreso de un usuario en un episodio concreto
      */
     @GetMapping("/one")
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<ListeningProgress> getOne(
             @RequestParam String userId,
             @RequestParam String episodeId) {
@@ -60,6 +64,7 @@ public class ListeningProgressController {
      * Elimina (resetea) el progreso de un usuario en un episodio
      */
     @DeleteMapping
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<Void> deleteProgress(
             @RequestParam String userId,
             @RequestParam String episodeId) {
@@ -79,6 +84,7 @@ public class ListeningProgressController {
      * Siguiente página: GET /api/progress/user/{userId}?cursor={nextCursor}&limit=20
      */
     @GetMapping("/user/{userId}")
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<PaginatedResponse<ListeningProgress>> getProgressByUser(
             @PathVariable String userId,
             @RequestParam(required = false) String cursor,
@@ -94,6 +100,7 @@ public class ListeningProgressController {
      * Lista progresos de un episodio con paginación cursor-based
      */
     @GetMapping("/episode/{episodeId}")
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<PaginatedResponse<ListeningProgress>> getProgressByEpisode(
             @PathVariable String episodeId,
             @RequestParam(required = false) String cursor,

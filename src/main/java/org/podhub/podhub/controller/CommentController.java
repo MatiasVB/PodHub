@@ -10,6 +10,7 @@ import org.podhub.podhub.model.enums.CommentTargetType;
 import org.podhub.podhub.service.CommentService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.Instant;
@@ -26,6 +27,7 @@ public class CommentController {
      * Crea un nuevo comentario
      */
     @PostMapping
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<Comment> createComment(@Valid @RequestBody Comment comment) {
         Comment created = commentService.createComment(comment);
         return ResponseEntity.status(HttpStatus.CREATED).body(created);
@@ -47,6 +49,7 @@ public class CommentController {
      * Actualiza un comentario existente
      */
     @PutMapping("/{id}")
+    @PreAuthorize("hasAuthority('EPISODE_WRITE')")
     public ResponseEntity<Comment> updateComment(
             @PathVariable String id,
             @Valid @RequestBody Comment comment) {
@@ -63,6 +66,7 @@ public class CommentController {
      * Elimina un comentario por ID
      */
     @DeleteMapping("/{id}")
+    @PreAuthorize("hasAuthority('EPISODE_WRITE')")
     public ResponseEntity<Void> deleteComment(@PathVariable String id) {
         try {
             commentService.deleteComment(id);
@@ -119,6 +123,7 @@ public class CommentController {
      * Lista comentarios por estado (PENDING/APPROVED/REJECTED) con paginación cursor-based
      */
     @GetMapping("/status/{status}")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<PaginatedResponse<Comment>> getCommentsByStatus(
             @PathVariable String status,
             @RequestParam(required = false) String cursor,

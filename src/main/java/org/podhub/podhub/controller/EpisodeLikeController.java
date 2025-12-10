@@ -6,6 +6,7 @@ import org.podhub.podhub.model.EpisodeLike;
 import org.podhub.podhub.service.EpisodeLikeService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.Instant;
@@ -22,6 +23,7 @@ public class EpisodeLikeController {
      * Crea un like de un usuario sobre un episodio
      */
     @PostMapping("/like")
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<EpisodeLike> like(
             @RequestParam String userId,
             @RequestParam String episodeId) {
@@ -34,6 +36,7 @@ public class EpisodeLikeController {
      * Elimina el like de un usuario sobre un episodio
      */
     @DeleteMapping("/unlike")
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<Void> unlike(
             @RequestParam String userId,
             @RequestParam String episodeId) {
@@ -62,6 +65,7 @@ public class EpisodeLikeController {
      * Lista likes de un usuario con paginación cursor-based
      */
     @GetMapping("/user/{userId}")
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<PaginatedResponse<EpisodeLike>> getLikesByUser(
             @PathVariable String userId,
             @RequestParam(required = false) String cursor,

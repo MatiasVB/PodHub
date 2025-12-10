@@ -7,6 +7,7 @@ import org.podhub.podhub.model.Episode;
 import org.podhub.podhub.service.EpisodeService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.Instant;
@@ -23,6 +24,7 @@ public class EpisodeController {
      * Crea un nuevo episodio asociado a un podcast.
      */
     @PostMapping
+    @PreAuthorize("hasAuthority('EPISODE_WRITE')")
     public ResponseEntity<Episode> createEpisode(@Valid @RequestBody Episode episode) {
         Episode created = episodeService.createEpisode(episode);
         return ResponseEntity.status(HttpStatus.CREATED).body(created);
@@ -44,6 +46,7 @@ public class EpisodeController {
      * Actualiza los datos de un episodio existente.
      */
     @PutMapping("/{id}")
+    @PreAuthorize("hasAuthority('EPISODE_WRITE')")
     public ResponseEntity<Episode> updateEpisode(
             @PathVariable String id,
             @Valid @RequestBody Episode episode) {
@@ -60,6 +63,7 @@ public class EpisodeController {
      * Elimina un episodio por su ID.
      */
     @DeleteMapping("/{id}")
+    @PreAuthorize("hasAuthority('EPISODE_WRITE')")
     public ResponseEntity<Void> deleteEpisode(@PathVariable String id) {
         try {
             episodeService.deleteEpisode(id);
@@ -77,6 +81,7 @@ public class EpisodeController {
      * Siguiente página: GET /api/episodes?cursor={nextCursor}&limit=20
      */
     @GetMapping
+    @PreAuthorize("hasAuthority('EPISODE_READ')")
     public ResponseEntity<PaginatedResponse<Episode>> getAllEpisodes(
             @RequestParam(required = false) String cursor,
             @RequestParam(defaultValue = "20") int limit) {

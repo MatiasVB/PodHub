@@ -10,6 +10,7 @@ import org.podhub.podhub.model.enums.UserStatus;
 import org.podhub.podhub.service.UserService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.Instant;
@@ -63,6 +64,7 @@ public class UserController {
      * Elimina un usuario por ID
      */
     @DeleteMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Void> deleteUser(@PathVariable String id) {
         try {
             userService.deleteUser(id);
@@ -107,6 +109,7 @@ public class UserController {
      * Lista usuarios por rol con paginación cursor-based
      */
     @GetMapping("/role/{role}")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<PaginatedResponse<User>> getUsersByRole(
             @PathVariable String role,
             @RequestParam(required = false) String cursor,
@@ -130,6 +133,7 @@ public class UserController {
      * Lista usuarios por estado con paginación cursor-based
      */
     @GetMapping("/status/{status}")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<PaginatedResponse<User>> getUsersByStatus(
             @PathVariable String status,
             @RequestParam(required = false) String cursor,

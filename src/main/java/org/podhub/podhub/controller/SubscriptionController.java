@@ -6,6 +6,7 @@ import org.podhub.podhub.model.Subscription;
 import org.podhub.podhub.service.SubscriptionService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.Instant;
@@ -22,6 +23,7 @@ public class SubscriptionController {
      * Crea una suscripción (userId se suscribe a podcastId)
      */
     @PostMapping("/subscribe")
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<Subscription> subscribe(
             @RequestParam String userId,
             @RequestParam String podcastId) {
@@ -34,6 +36,7 @@ public class SubscriptionController {
      * Elimina una suscripción (dejar de seguir)
      */
     @DeleteMapping("/unsubscribe")
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<Void> unsubscribe(
             @RequestParam String userId,
             @RequestParam String podcastId) {
@@ -60,6 +63,7 @@ public class SubscriptionController {
      * Siguiente página: GET /api/subscriptions/user/{userId}?cursor={nextCursor}&limit=20
      */
     @GetMapping("/user/{userId}")
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<PaginatedResponse<Subscription>> getSubscriptionsByUser(
             @PathVariable String userId,
             @RequestParam(required = false) String cursor,

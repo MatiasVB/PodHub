@@ -22,13 +22,12 @@ public interface UserRepository extends MongoRepository<User, String> {
 
     boolean existsByEmail(String email);
 
-    Optional<User> findByUsername(String username);
-
     boolean existsByUsername(String username);
 
     Page<User> findByStatus(UserStatus status, Pageable pageable);
 
-    Page<User> findByRole(UserRole role, Pageable pageable);
+    @Query(value = "{ 'roleIds': ?0 }")
+    Page<User> findByRoleId(String roleId, Pageable pageable);
 
     // ========== Paginación cursor-based: Todos los usuarios ==========
 
@@ -48,11 +47,11 @@ public interface UserRepository extends MongoRepository<User, String> {
 
     // ========== Paginación cursor-based: Por rol ==========
 
-    @Query(value = "{ 'role': ?0 }", sort = "{ 'createdAt': -1 }")
-    List<User> findFirstUsersByRole(UserRole role, int limit);
+    @Query(value = "{ 'roleIds': ?0 }", sort = "{ 'createdAt': -1 }")
+    List<User> findFirstUsersByRoleId(String roleId, int limit);
 
-    @Query(value = "{ 'role': ?0, 'createdAt': { $lt: ?1 } }", sort = "{ 'createdAt': -1 }")
-    List<User> findNextUsersByRole(UserRole role, Instant cursor, int limit);
+    @Query(value = "{ 'roleIds': ?0, 'createdAt': { $lt: ?1 } }", sort = "{ 'createdAt': -1 }")
+    List<User> findNextUsersByRoleId(String roleId, Instant cursor, int limit);
 
     // ========== Paginación cursor-based: Búsqueda por nombre ==========
     // Busca en username O displayName usando $or

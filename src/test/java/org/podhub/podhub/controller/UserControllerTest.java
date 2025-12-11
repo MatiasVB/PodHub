@@ -13,6 +13,7 @@ import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.time.Instant;
+import java.util.Set;
 
 import static org.hamcrest.Matchers.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
@@ -62,7 +63,7 @@ class UserControllerTest {
         newUser.setUsername("testuser_" + System.currentTimeMillis());
         newUser.setEmail("testuser" + System.currentTimeMillis() + "@podhub.com");
         newUser.setPasswordHash("$2a$10$hashedpassword");
-        newUser.setRole(UserRole.USER);
+        newUser.setRoleIds(Set.of("test-user-role-id")); // Mock role ID for testing
         newUser.setStatus(UserStatus.ACTIVE);
 
         mockMvc.perform(post("/api/users")
@@ -72,7 +73,7 @@ class UserControllerTest {
                 .andExpect(jsonPath("$.id").exists())
                 .andExpect(jsonPath("$.username").value(newUser.getUsername()))
                 .andExpect(jsonPath("$.email").value(newUser.getEmail()))
-                .andExpect(jsonPath("$.role").value("USER"))
+                .andExpect(jsonPath("$.roleIds").exists())
                 .andExpect(jsonPath("$.createdAt").exists());
     }
 
@@ -84,7 +85,7 @@ class UserControllerTest {
         duplicateUser.setUsername("newuser");
         duplicateUser.setEmail("john@podhub.com"); // Already exists
         duplicateUser.setPasswordHash("$2a$10$hashedpassword");
-        duplicateUser.setRole(UserRole.USER);
+        duplicateUser.setRoleIds(Set.of("test-user-role-id")); // Mock role ID for testing
         duplicateUser.setStatus(UserStatus.ACTIVE);
 
         mockMvc.perform(post("/api/users")
@@ -165,7 +166,7 @@ class UserControllerTest {
         user.setUsername("shouldfail");
         user.setEmail("fail@test.com");
         user.setPasswordHash("hash");
-        user.setRole(UserRole.USER);
+        user.setRoleIds(Set.of("test-user-role-id")); // Mock role ID for testing
         user.setStatus(UserStatus.ACTIVE);
 
         mockMvc.perform(put("/api/users/{id}", nonExistentId)
@@ -187,7 +188,7 @@ class UserControllerTest {
         toDelete.setUsername("user_to_delete_" + System.currentTimeMillis());
         toDelete.setEmail("delete" + System.currentTimeMillis() + "@test.com");
         toDelete.setPasswordHash("$2a$10$hashedpassword");
-        toDelete.setRole(UserRole.USER);
+        toDelete.setRoleIds(Set.of("test-user-role-id")); // Mock role ID for testing
         toDelete.setStatus(UserStatus.ACTIVE);
         toDelete.setCreatedAt(Instant.now());
         toDelete.setUpdatedAt(Instant.now());

@@ -14,6 +14,7 @@ import org.springframework.stereotype.Component;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 
 /**
  * Utility class to seed the MongoDB database with test data.
@@ -28,6 +29,7 @@ import java.util.List;
 public class DataSeeder implements CommandLineRunner {
 
     private final UserRepository userRepository;
+    private final RoleRepository roleRepository;
     private final PodcastRepository podcastRepository;
     private final EpisodeRepository episodeRepository;
     private final CommentRepository commentRepository;
@@ -77,12 +79,20 @@ public class DataSeeder implements CommandLineRunner {
     private void seedUsers() {
         log.debug("Seeding users...");
 
+        // Pre-load roles
+        Role adminRole = roleRepository.findByName(UserRole.ADMIN)
+                .orElseThrow(() -> new RuntimeException("Admin role not found. Run DataInitializer first."));
+        Role creatorRole = roleRepository.findByName(UserRole.CREATOR)
+                .orElseThrow(() -> new RuntimeException("Creator role not found. Run DataInitializer first."));
+        Role userRole = roleRepository.findByName(UserRole.USER)
+                .orElseThrow(() -> new RuntimeException("User role not found. Run DataInitializer first."));
+
         // Admin user
         User admin = new User();
         admin.setUsername("admin");
         admin.setEmail("admin@podhub.com");
         admin.setPasswordHash("$2a$10$hashedpassword"); // In real app, use BCrypt
-        admin.setRole(UserRole.ADMIN);
+        admin.setRoleIds(Set.of(adminRole.getId()));
         admin.setStatus(UserStatus.ACTIVE);
         admin.setCreatedAt(Instant.now().minusSeconds(86400 * 30)); // 30 days ago
         admin.setUpdatedAt(admin.getCreatedAt());
@@ -94,7 +104,7 @@ public class DataSeeder implements CommandLineRunner {
         creator1.setUsername("john_creator");
         creator1.setEmail("john@podhub.com");
         creator1.setPasswordHash("$2a$10$hashedpassword");
-        creator1.setRole(UserRole.CREATOR);
+        creator1.setRoleIds(Set.of(creatorRole.getId()));
         creator1.setStatus(UserStatus.ACTIVE);
         creator1.setCreatedAt(Instant.now().minusSeconds(86400 * 25));
         creator1.setUpdatedAt(creator1.getCreatedAt());
@@ -105,7 +115,7 @@ public class DataSeeder implements CommandLineRunner {
         creator2.setUsername("jane_creator");
         creator2.setEmail("jane@podhub.com");
         creator2.setPasswordHash("$2a$10$hashedpassword");
-        creator2.setRole(UserRole.CREATOR);
+        creator2.setRoleIds(Set.of(creatorRole.getId()));
         creator2.setStatus(UserStatus.ACTIVE);
         creator2.setCreatedAt(Instant.now().minusSeconds(86400 * 20));
         creator2.setUpdatedAt(creator2.getCreatedAt());
@@ -117,7 +127,7 @@ public class DataSeeder implements CommandLineRunner {
         listener1.setUsername("alice_listener");
         listener1.setEmail("alice@podhub.com");
         listener1.setPasswordHash("$2a$10$hashedpassword");
-        listener1.setRole(UserRole.USER);
+        listener1.setRoleIds(Set.of(userRole.getId()));
         listener1.setStatus(UserStatus.ACTIVE);
         listener1.setCreatedAt(Instant.now().minusSeconds(86400 * 15));
         listener1.setUpdatedAt(listener1.getCreatedAt());
@@ -128,7 +138,7 @@ public class DataSeeder implements CommandLineRunner {
         listener2.setUsername("bob_listener");
         listener2.setEmail("bob@podhub.com");
         listener2.setPasswordHash("$2a$10$hashedpassword");
-        listener2.setRole(UserRole.USER);
+        listener2.setRoleIds(Set.of(userRole.getId()));
         listener2.setStatus(UserStatus.ACTIVE);
         listener2.setCreatedAt(Instant.now().minusSeconds(86400 * 10));
         listener2.setUpdatedAt(listener2.getCreatedAt());
@@ -140,7 +150,7 @@ public class DataSeeder implements CommandLineRunner {
         suspended.setUsername("suspended_user");
         suspended.setEmail("suspended@podhub.com");
         suspended.setPasswordHash("$2a$10$hashedpassword");
-        suspended.setRole(UserRole.USER);
+        suspended.setRoleIds(Set.of(userRole.getId()));
         suspended.setStatus(UserStatus.SUSPENDED);
         suspended.setCreatedAt(Instant.now().minusSeconds(86400 * 5));
         suspended.setUpdatedAt(Instant.now());

@@ -94,15 +94,16 @@ public class UserService {
 
     /**
      * Obtiene los usuarios por rol con paginación cursor-based
+     * @param roleId ID del rol a buscar
      */
-    public PaginatedResponse<User> findByRole(UserRole role, Instant cursor, int limit) {
-        log.debug("Finding users by role: {} with cursor: {} and limit: {}", role, cursor, limit);
+    public PaginatedResponse<User> findByRoleId(String roleId, Instant cursor, int limit) {
+        log.debug("Finding users by roleId: {} with cursor: {} and limit: {}", roleId, cursor, limit);
 
         List<User> users;
         if (cursor == null) {
-            users = userRepository.findFirstUsersByRole(role, limit + 1);
+            users = userRepository.findFirstUsersByRoleId(roleId, limit + 1);
         } else {
-            users = userRepository.findNextUsersByRole(role, cursor, limit + 1);
+            users = userRepository.findNextUsersByRoleId(roleId, cursor, limit + 1);
         }
 
         return buildPaginatedResponse(users, limit);

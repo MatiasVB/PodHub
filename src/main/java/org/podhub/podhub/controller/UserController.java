@@ -4,9 +4,12 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.podhub.podhub.dto.PaginatedResponse;
 import org.podhub.podhub.exception.BadRequestException;
+import org.podhub.podhub.exception.ResourceNotFoundException;
+import org.podhub.podhub.model.Role;
 import org.podhub.podhub.model.User;
 import org.podhub.podhub.model.enums.UserRole;
 import org.podhub.podhub.model.enums.UserStatus;
+import org.podhub.podhub.repository.RoleRepository;
 import org.podhub.podhub.service.UserService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -21,6 +24,7 @@ import java.time.Instant;
 public class UserController {
 
     private final UserService userService;
+    private final RoleRepository roleRepository;
 
     /**
      * POST /api/users
@@ -124,7 +128,11 @@ public class UserController {
             throw new BadRequestException("Valor de 'role' inválido: " + role);
         }
 
-        PaginatedResponse<User> response = userService.findByRole(roleEnum, cursorInstant, limit);
+        // Obtener el roleId desde la base de datos
+        Role roleEntity = roleRepository.findByName(roleEnum)
+                .orElseThrow(() -> new ResourceNotFoundException("Role not found: " + roleEnum));
+
+        PaginatedResponse<User> response = userService.findByRoleId(roleEntity.getId(), cursorInstant, limit);
         return ResponseEntity.ok(response);
     }
 

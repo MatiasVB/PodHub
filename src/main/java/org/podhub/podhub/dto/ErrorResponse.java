@@ -1,9 +1,11 @@
 package org.podhub.podhub.dto;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
+import lombok.Getter;
 import java.time.Instant;
 import java.util.Map;
 
+@Getter
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public class ErrorResponse {
     private final Instant timestamp = Instant.now();
@@ -21,10 +23,4 @@ public class ErrorResponse {
         this.validationErrors = validationErrors;
     }
 
-    public Instant getTimestamp() { return timestamp; }
-    public int getStatus() { return status; }
-    public String getError() { return error; }
-    public String getMessage() { return message; }
-    public String getPath() { return path; }
-    public Map<String, String> getValidationErrors() { return validationErrors; }
 }

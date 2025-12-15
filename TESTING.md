@@ -1,12 +1,14 @@
 # Podhub API Testing Guide
 
-This guide explains how to test all 52 REST API endpoints in the Podhub application using automated integration tests and manual cURL commands.
+This guide explains how to test all ~28-30 REST API endpoints in the Podhub application using automated integration tests and manual cURL commands.
 
 ## Table of Contents
 - [Overview](#overview)
 - [Test Data Setup](#test-data-setup)
 - [Running Integration Tests](#running-integration-tests)
 - [Manual Testing with cURL](#manual-testing-with-curl)
+- [Nested Resource Endpoints](#nested-resource-endpoints)
+- [Query Parameter Filtering](#query-parameter-filtering)
 - [Test Coverage](#test-coverage)
 - [Troubleshooting](#troubleshooting)
 
@@ -17,21 +19,22 @@ This guide explains how to test all 52 REST API endpoints in the Podhub applicat
 The Podhub API testing suite includes:
 
 - **DataSeeder**: Utility class to populate MongoDB Atlas with test data
-- **7 Integration Test Classes**: Automated tests for all 52 endpoints using JUnit 5 and Spring Boot Test
-- **cURL Script**: Manual testing script for all 52 endpoints
+- **10 Integration Test Classes**: Automated tests for all ~28-30 endpoints using JUnit 5 and Spring Boot Test
+- **cURL Script**: Manual testing script for all endpoints
+- **Consolidated API**: Query parameter filtering reduces endpoint count from 52 to ~28-30
 
 ### Endpoint Summary
 
-| Controller | Endpoints | Test Class |
-|-----------|-----------|------------|
-| PodcastController | 9 | `PodcastControllerTest` |
-| EpisodeController | 8 | `EpisodeControllerTest` |
-| UserController | 8 | `UserControllerTest` |
-| CommentController | 8 | `CommentControllerTest` |
-| SubscriptionController | 6 | `SubscriptionControllerTest` |
-| EpisodeLikeController | 7 | `EpisodeLikeControllerTest` |
-| ListeningProgressController | 6 | `ListeningProgressControllerTest` |
-| **Total** | **52** | **7 test classes** |
+| Controller | Description | Test Class |
+|-----------|-------------|------------|
+| PodcastController | Podcast CRUD + query filtering + subscribers endpoint | `PodcastControllerTest` |
+| EpisodeController | Episode CRUD + query filtering + likes endpoint | `EpisodeControllerTest` |
+| UserController | User management + query filtering | `UserControllerTest` |
+| CommentController | Comment management + query filtering | `CommentControllerTest` |
+| UserSubscriptionController | User subscriptions (nested resource) **[NEW]** | `UserSubscriptionControllerTest` |
+| UserLikeController | User likes (nested resource) **[NEW]** | `UserLikeControllerTest` |
+| UserProgressController | User listening progress (nested resource) **[NEW]** | `UserProgressControllerTest` |
+| **Total** | **~28-30 endpoints** | **10 test classes** |
 
 ---
 
@@ -232,7 +235,7 @@ The `test-api.sh` script provides a convenient way to manually test all endpoint
 
 ### Script Features
 
-- ✅ Tests all 52 endpoints
+- ✅ Tests all ~28-30 endpoints (reduced from 52 via query consolidation)
 - ✅ Color-coded output (Green = success, Red = error, Blue = headers)
 - ✅ Organized by controller
 - ✅ Shows cURL command and response for each test
@@ -258,75 +261,273 @@ Response: {"id":"123","title":"Test Podcast",...}
 
 ---
 
+## Nested Resource Endpoints
+
+The API uses nested resources for user-centric operations. Here are cURL examples for testing these endpoints.
+
+### Subscriptions
+
+**Subscribe to a podcast:**
+```bash
+curl -X POST http://localhost:8080/api/users/{userId}/subscriptions \
+  -H "Content-Type: application/json" \
+  -d '{"podcastId": "podcast-id-here"}'
+```
+
+**List user subscriptions:**
+```bash
+curl -X GET "http://localhost:8080/api/users/{userId}/subscriptions?limit=20"
+```
+
+**Unsubscribe from a podcast:**
+```bash
+curl -X DELETE http://localhost:8080/api/users/{userId}/subscriptions/{podcastId}
+```
+
+### Likes
+
+**Like an episode:**
+```bash
+curl -X POST http://localhost:8080/api/users/{userId}/likes \
+  -H "Content-Type: application/json" \
+  -d '{"episodeId": "episode-id-here"}'
+```
+
+**List user likes:**
+```bash
+curl -X GET "http://localhost:8080/api/users/{userId}/likes?limit=20"
+```
+
+**Check if user liked an episode (HEAD method):**
+```bash
+curl -I http://localhost:8080/api/users/{userId}/likes/{episodeId}
+# Returns: 200 OK (if liked) or 404 Not Found (if not liked)
+```
+
+**Unlike an episode:**
+```bash
+curl -X DELETE http://localhost:8080/api/users/{userId}/likes/{episodeId}
+```
+
+### Listening Progress
+
+**Update listening progress (PUT, idempotent):**
+```bash
+curl -X PUT http://localhost:8080/api/users/{userId}/progress/{episodeId} \
+  -H "Content-Type: application/json" \
+  -d '{
+    "positionSeconds": 120,
+    "completed": false
+  }'
+```
+
+**Get user progress for all episodes:**
+```bash
+curl -X GET "http://localhost:8080/api/users/{userId}/progress?limit=20"
+```
+
+**Get progress for specific episode:**
+```bash
+curl -X GET http://localhost:8080/api/users/{userId}/progress/{episodeId}
+```
+
+**Delete progress:**
+```bash
+curl -X DELETE http://localhost:8080/api/users/{userId}/progress/{episodeId}
+```
+
+---
+
+## Query Parameter Filtering
+
+List endpoints now use query parameters for filtering instead of separate path-based endpoints. All filters are optional and combinable.
+
+### Podcasts
+
+**Get all podcasts:**
+```bash
+curl -X GET "http://localhost:8080/api/podcasts?limit=20"
+```
+
+**Filter by public:**
+```bash
+curl -X GET "http://localhost:8080/api/podcasts?isPublic=true&limit=20"
+```
+
+**Filter by creator:**
+```bash
+curl -X GET "http://localhost:8080/api/podcasts?creatorId={creatorId}&limit=20"
+```
+
+**Search by title:**
+```bash
+curl -X GET "http://localhost:8080/api/podcasts?title=tech&limit=20"
+```
+
+**Combine multiple filters:**
+```bash
+curl -X GET "http://localhost:8080/api/podcasts?isPublic=true&creatorId={creatorId}&limit=20"
+```
+
+**Get podcast by ID or slug:**
+```bash
+# By ID
+curl -X GET http://localhost:8080/api/podcasts/{id}
+
+# By slug
+curl -X GET http://localhost:8080/api/podcasts/my-podcast-slug
+```
+
+**List podcast subscribers:**
+```bash
+# Get list with pagination
+curl -X GET "http://localhost:8080/api/podcasts/{podcastId}/subscribers?limit=20"
+
+# Get count only
+curl -X GET "http://localhost:8080/api/podcasts/{podcastId}/subscribers?count=true"
+# Response: {"count": 42}
+```
+
+### Episodes
+
+**Get all episodes:**
+```bash
+curl -X GET "http://localhost:8080/api/episodes?limit=20"
+```
+
+**Filter by public:**
+```bash
+curl -X GET "http://localhost:8080/api/episodes?isPublic=true&limit=20"
+```
+
+**Filter by podcast:**
+```bash
+curl -X GET "http://localhost:8080/api/episodes?podcastId={podcastId}&limit=20"
+```
+
+**Search by title:**
+```bash
+curl -X GET "http://localhost:8080/api/episodes?title=interview&limit=20"
+```
+
+**Combine multiple filters:**
+```bash
+curl -X GET "http://localhost:8080/api/episodes?isPublic=true&podcastId={podcastId}&limit=20"
+```
+
+**List episode likes:**
+```bash
+# Get list with pagination
+curl -X GET "http://localhost:8080/api/episodes/{episodeId}/likes?limit=20"
+
+# Get count only
+curl -X GET "http://localhost:8080/api/episodes/{episodeId}/likes?count=true"
+# Response: {"count": 15}
+```
+
+### Users
+
+**Get all users:**
+```bash
+curl -X GET "http://localhost:8080/api/users?limit=20"
+```
+
+**Filter by role (role name, auto-converted to roleId):**
+```bash
+curl -X GET "http://localhost:8080/api/users?role=CREATOR&limit=20"
+```
+
+**Filter by status:**
+```bash
+curl -X GET "http://localhost:8080/api/users?status=ACTIVE&limit=20"
+```
+
+**Search by name:**
+```bash
+curl -X GET "http://localhost:8080/api/users?name=john&limit=20"
+```
+
+**Combine multiple filters:**
+```bash
+curl -X GET "http://localhost:8080/api/users?role=USER&status=ACTIVE&limit=20"
+```
+
+### Comments
+
+**Filter by podcast:**
+```bash
+curl -X GET "http://localhost:8080/api/comments?podcastId={podcastId}&limit=20"
+```
+
+**Filter by episode:**
+```bash
+curl -X GET "http://localhost:8080/api/comments?episodeId={episodeId}&limit=20"
+```
+
+**Filter by parent (get replies):**
+```bash
+curl -X GET "http://localhost:8080/api/comments?parentId={commentId}&limit=20"
+```
+
+**Filter by status (ADMIN only):**
+```bash
+curl -X GET "http://localhost:8080/api/comments?status=APPROVED&limit=20"
+```
+
+**Note:** Comment endpoint requires at least one filter parameter. Calling without filters returns an empty list.
+
+---
+
 ## Test Coverage
 
-### Endpoint Coverage: 52/52 (100%)
+### Endpoint Coverage: ~28-30 endpoints (100%)
 
-#### PodcastController (9/9)
+#### PodcastController
 - ✅ Create podcast
-- ✅ Get podcast by ID
-- ✅ Get podcast by slug
+- ✅ Get podcast by ID or slug
 - ✅ Update podcast
 - ✅ Delete podcast
-- ✅ List all podcasts (with pagination)
-- ✅ List public podcasts
-- ✅ List podcasts by creator
-- ✅ Search podcasts by title
+- ✅ List podcasts with query filtering (isPublic, creatorId, title)
+- ✅ List podcast subscribers (with pagination and count)
 
-#### EpisodeController (8/8)
+#### EpisodeController
 - ✅ Create episode
 - ✅ Get episode by ID
 - ✅ Update episode
 - ✅ Delete episode
-- ✅ List all episodes (with pagination)
-- ✅ List public episodes
-- ✅ List episodes by podcast
-- ✅ Search episodes by title
+- ✅ List episodes with query filtering (isPublic, podcastId, title)
+- ✅ List episode likes (with pagination and count)
 
-#### UserController (8/8)
+#### UserController
 - ✅ Create user
 - ✅ Get user by ID
 - ✅ Update user
 - ✅ Delete user
-- ✅ List all users (with pagination)
-- ✅ Search users by name
-- ✅ List users by role
-- ✅ List users by status
+- ✅ List users with query filtering (name, role, status)
 
-#### CommentController (8/8)
+#### CommentController
 - ✅ Create comment
 - ✅ Get comment by ID
 - ✅ Update comment
 - ✅ Delete comment
-- ✅ List comments on podcast
-- ✅ List comments on episode
-- ✅ List replies to comment
-- ✅ List comments by status
+- ✅ List comments with query filtering (podcastId, episodeId, parentId, status)
 
-#### SubscriptionController (6/6)
-- ✅ Subscribe to podcast
-- ✅ Unsubscribe from podcast
-- ✅ Get subscription by ID
-- ✅ List subscriptions by user
-- ✅ List subscriptions by podcast
-- ✅ Get subscriber count
+#### UserSubscriptionController (Nested Resource) **[NEW]**
+- ✅ Subscribe to podcast (POST)
+- ✅ List user subscriptions (GET with pagination)
+- ✅ Unsubscribe from podcast (DELETE)
 
-#### EpisodeLikeController (7/7)
-- ✅ Like episode
-- ✅ Unlike episode
-- ✅ Get like by ID
-- ✅ List likes by user
-- ✅ List likes by episode
-- ✅ Check if user liked episode
-- ✅ Get like count
+#### UserLikeController (Nested Resource) **[NEW]**
+- ✅ Like episode (POST)
+- ✅ List user likes (GET with pagination)
+- ✅ Check if user liked episode (HEAD)
+- ✅ Unlike episode (DELETE)
 
-#### ListeningProgressController (6/6)
-- ✅ Create/update listening progress (upsert)
-- ✅ Get progress by ID
-- ✅ Get specific user progress on episode
-- ✅ Delete listening progress
-- ✅ List progress by user
-- ✅ List progress by episode
+#### UserProgressController (Nested Resource) **[NEW]**
+- ✅ Upsert listening progress (PUT, idempotent)
+- ✅ List user progress (GET with pagination)
+- ✅ Get specific episode progress (GET)
+- ✅ Delete progress (DELETE)
 
 ### Test Scenario Coverage
 
@@ -412,10 +613,22 @@ If you want to clean up test data:
 
 ## Summary
 
-You now have a comprehensive testing suite for all 52 Podhub API endpoints:
+You now have a comprehensive testing suite for all Podhub API endpoints:
 
 1. **DataSeeder** for populating realistic test data
-2. **7 Integration Test Classes** with ~80-100 automated tests
+2. **10 Integration Test Classes** with comprehensive automated tests covering:
+   - CRUD operations for all resources
+   - Query parameter filtering
+   - Nested resource endpoints (subscriptions, likes, progress)
+   - Error scenarios and validation
 3. **cURL Script** for manual testing and exploration
+4. **Consolidated API** with ~28-30 endpoints (reduced from 52) via query parameter filtering
+
+**Key Improvements:**
+- Nested resources for user-centric operations
+- Query parameters instead of path-based filtering
+- Reduced endpoint count with more flexible filtering
+- Idempotent PUT operations for progress tracking
+- HEAD method for efficient existence checks
 
 Happy testing! 🚀

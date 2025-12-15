@@ -63,72 +63,93 @@ public class PodcastService {
     }
 
     /**
-     * Obtiene todos los podcasts con paginación cursor-based
+     * Busca un podcast por ID o slug
+     * Intenta primero como ID, si no existe intenta como slug
+     *
+     * @param idOrSlug Identificador que puede ser ID o slug
+     * @return Optional con el podcast si se encuentra
+     */
+    public Optional<Podcast> findByIdOrSlug(String idOrSlug) {
+        log.debug("Finding podcast by ID or slug: {}", idOrSlug);
+        Optional<Podcast> result = findById(idOrSlug);
+        if (result.isEmpty()) {
+            result = findBySlug(idOrSlug);
+        }
+        return result;
+    }
+
+    /**
+     * Obtiene todos los podcasts con paginación cursor-based y filtros opcionales
      *
      * @param cursor Timestamp del último elemento (null para primera página)
      * @param limit  Número máximo de elementos a retornar
+     * @param isPublic Filtro opcional por visibilidad pública
+     * @param creatorId Filtro opcional por creador
+     * @param title Filtro opcional por búsqueda en título
      * @return Respuesta paginada con cursor para siguiente página
      */
-    public PaginatedResponse<Podcast> findAll(Instant cursor, int limit) {
-        log.debug("Finding all podcasts with cursor: {} and limit: {}", cursor, limit);
+    public PaginatedResponse<Podcast> findAll(Instant cursor, int limit, Boolean isPublic, String creatorId, String title) {
+        log.debug("Finding podcasts with cursor: {}, limit: {}, isPublic: {}, creatorId: {}, title: {}",
+                  cursor, limit, isPublic, creatorId, title);
 
-        // Agregar 1 al límite para detectar si hay más elementos
         List<Podcast> podcasts;
-        if (cursor == null) {
-            podcasts = podcastRepository.findFirstPodcasts(limit + 1);
+
+        // Determinar qué método del repository usar según los filtros
+        if (title != null && !title.trim().isEmpty()) {
+            // Búsqueda por título tiene prioridad
+            if (cursor == null) {
+                podcasts = podcastRepository.findFirstPodcastsByTitle(title, limit + 1);
+            } else {
+                podcasts = podcastRepository.findNextPodcastsByTitle(title, cursor, limit + 1);
+            }
+        } else if (creatorId != null && !creatorId.trim().isEmpty()) {
+            // Filtro por creador
+            if (cursor == null) {
+                podcasts = podcastRepository.findFirstPodcastsByCreator(creatorId, limit + 1);
+            } else {
+                podcasts = podcastRepository.findNextPodcastsByCreator(creatorId, cursor, limit + 1);
+            }
+        } else if (Boolean.TRUE.equals(isPublic)) {
+            // Filtro por públicos
+            if (cursor == null) {
+                podcasts = podcastRepository.findFirstPublicPodcasts(limit + 1);
+            } else {
+                podcasts = podcastRepository.findNextPublicPodcasts(cursor, limit + 1);
+            }
         } else {
-            podcasts = podcastRepository.findNextPodcasts(cursor, limit + 1);
+            // Sin filtros, todos los podcasts
+            if (cursor == null) {
+                podcasts = podcastRepository.findFirstPodcasts(limit + 1);
+            } else {
+                podcasts = podcastRepository.findNextPodcasts(cursor, limit + 1);
+            }
         }
 
         return buildPaginatedResponse(podcasts, limit);
     }
 
     /**
-     * Obtiene los podcasts de un creador específico con paginación cursor-based
+     * @deprecated Use findAll(cursor, limit, isPublic, creatorId, title) instead
      */
+    @Deprecated
     public PaginatedResponse<Podcast> findByCreatorId(String creatorId, Instant cursor, int limit) {
-        log.debug("Finding podcasts by creator: {} with cursor: {} and limit: {}", creatorId, cursor, limit);
-
-        List<Podcast> podcasts;
-        if (cursor == null) {
-            podcasts = podcastRepository.findFirstPodcastsByCreator(creatorId, limit + 1);
-        } else {
-            podcasts = podcastRepository.findNextPodcastsByCreator(creatorId, cursor, limit + 1);
-        }
-
-        return buildPaginatedResponse(podcasts, limit);
+        return findAll(cursor, limit, null, creatorId, null);
     }
 
     /**
-     * Obtiene solo los podcasts públicos con paginación cursor-based
+     * @deprecated Use findAll(cursor, limit, isPublic, creatorId, title) instead
      */
+    @Deprecated
     public PaginatedResponse<Podcast> findPublicPodcasts(Instant cursor, int limit) {
-        log.debug("Finding public podcasts with cursor: {} and limit: {}", cursor, limit);
-
-        List<Podcast> podcasts;
-        if (cursor == null) {
-            podcasts = podcastRepository.findFirstPublicPodcasts(limit + 1);
-        } else {
-            podcasts = podcastRepository.findNextPublicPodcasts(cursor, limit + 1);
-        }
-
-        return buildPaginatedResponse(podcasts, limit);
+        return findAll(cursor, limit, true, null, null);
     }
 
     /**
-     * Busca podcasts por título con paginación cursor-based
+     * @deprecated Use findAll(cursor, limit, isPublic, creatorId, title) instead
      */
+    @Deprecated
     public PaginatedResponse<Podcast> searchByTitle(String title, Instant cursor, int limit) {
-        log.debug("Searching podcasts by title: {} with cursor: {} and limit: {}", title, cursor, limit);
-
-        List<Podcast> podcasts;
-        if (cursor == null) {
-            podcasts = podcastRepository.findFirstPodcastsByTitle(title, limit + 1);
-        } else {
-            podcasts = podcastRepository.findNextPodcastsByTitle(title, cursor, limit + 1);
-        }
-
-        return buildPaginatedResponse(podcasts, limit);
+        return findAll(cursor, limit, null, null, title);
     }
 
     /**

@@ -275,56 +275,48 @@ class CommentControllerTest {
     }
 
     // ===========================
-    // LIST TESTS - BY PODCAST
+    // LIST TESTS - QUERY FILTERING (NEW)
     // ===========================
 
     @Test
     @Order(9)
-    @DisplayName("GET /api/comments/podcast/{podcastId} - List comments on podcast")
-    void testGetCommentsByPodcast() throws Exception {
-        mockMvc.perform(get("/api/comments/podcast/{podcastId}", testPodcastId)
+    @DisplayName("GET /api/comments?podcastId={id} - Filter by podcast")
+    void testGetCommentsFilterByPodcast() throws Exception {
+        mockMvc.perform(get("/api/comments")
+                        .param("podcastId", testPodcastId)
                         .param("limit", "20"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data").isArray());
     }
-
-    // ===========================
-    // LIST TESTS - BY EPISODE
-    // ===========================
 
     @Test
     @Order(10)
-    @DisplayName("GET /api/comments/episode/{episodeId} - List comments on episode")
-    void testGetCommentsByEpisode() throws Exception {
-        mockMvc.perform(get("/api/comments/episode/{episodeId}", testEpisodeId)
+    @DisplayName("GET /api/comments?episodeId={id} - Filter by episode")
+    void testGetCommentsFilterByEpisode() throws Exception {
+        mockMvc.perform(get("/api/comments")
+                        .param("episodeId", testEpisodeId)
                         .param("limit", "20"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data").isArray());
     }
-
-    // ===========================
-    // LIST TESTS - BY PARENT (REPLIES)
-    // ===========================
 
     @Test
     @Order(11)
-    @DisplayName("GET /api/comments/parent/{parentId} - List replies to comment")
-    void testGetRepliesByParent() throws Exception {
-        mockMvc.perform(get("/api/comments/parent/{parentId}", testCommentId)
+    @DisplayName("GET /api/comments?parentId={id} - Filter by parent (replies)")
+    void testGetCommentsFilterByParent() throws Exception {
+        mockMvc.perform(get("/api/comments")
+                        .param("parentId", testCommentId)
                         .param("limit", "20"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data").isArray());
     }
 
-    // ===========================
-    // LIST TESTS - BY STATUS
-    // ===========================
-
     @Test
     @Order(12)
-    @DisplayName("GET /api/comments/status/{status} - List comments by status (APPROVED)")
-    void testGetCommentsByStatus() throws Exception {
-        mockMvc.perform(get("/api/comments/status/{status}", "APPROVED")
+    @DisplayName("GET /api/comments?status={status} - Filter by status (APPROVED)")
+    void testGetCommentsFilterByStatus() throws Exception {
+        mockMvc.perform(get("/api/comments")
+                        .param("status", "APPROVED")
                         .param("limit", "20"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data").isArray())
@@ -333,11 +325,24 @@ class CommentControllerTest {
 
     @Test
     @Order(13)
-    @DisplayName("GET /api/comments/status/{status} - List comments by status (PENDING)")
-    void testGetCommentsByStatusPending() throws Exception {
-        mockMvc.perform(get("/api/comments/status/{status}", "PENDING")
+    @DisplayName("GET /api/comments?status={status} - Filter by status (PENDING)")
+    void testGetCommentsFilterByStatusPending() throws Exception {
+        mockMvc.perform(get("/api/comments")
+                        .param("status", "PENDING")
                         .param("limit", "20"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data").isArray());
+    }
+
+    @Test
+    @Order(14)
+    @DisplayName("GET /api/comments - No filters returns empty list")
+    void testGetCommentsNoFilters() throws Exception {
+        mockMvc.perform(get("/api/comments")
+                        .param("limit", "20"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data").isArray())
+                .andExpect(jsonPath("$.data", hasSize(0)))
+                .andExpect(jsonPath("$.hasMore").value(false));
     }
 }

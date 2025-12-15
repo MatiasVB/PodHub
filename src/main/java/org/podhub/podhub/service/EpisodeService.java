@@ -36,56 +36,78 @@ public class EpisodeService {
         return episodeRepository.findById(id);
     }
 
-    public PaginatedResponse<Episode> findAll(Instant cursor, int limit) {
-        log.debug("Finding all episodes with cursor: {} and limit: {}", cursor, limit);
+    /**
+     * Obtiene todos los episodios con paginación cursor-based y filtros opcionales
+     *
+     * @param cursor Timestamp del último elemento (null para primera página)
+     * @param limit Número máximo de elementos a retornar
+     * @param isPublic Filtro opcional por visibilidad pública
+     * @param podcastId Filtro opcional por podcast
+     * @param title Filtro opcional por búsqueda en título
+     * @return Respuesta paginada con cursor para siguiente página
+     */
+    public PaginatedResponse<Episode> findAll(Instant cursor, int limit, Boolean isPublic, String podcastId, String title) {
+        log.debug("Finding episodes with cursor: {}, limit: {}, isPublic: {}, podcastId: {}, title: {}",
+                  cursor, limit, isPublic, podcastId, title);
 
         List<Episode> episodes;
-        if (cursor == null) {
-            episodes = episodeRepository.findFirstEpisodes(limit + 1);
+
+        // Determinar qué método del repository usar según los filtros
+        if (title != null && !title.trim().isEmpty()) {
+            // Búsqueda por título tiene prioridad
+            if (cursor == null) {
+                episodes = episodeRepository.findFirstEpisodesByTitle(title, limit + 1);
+            } else {
+                episodes = episodeRepository.findNextEpisodesByTitle(title, cursor, limit + 1);
+            }
+        } else if (podcastId != null && !podcastId.trim().isEmpty()) {
+            // Filtro por podcast
+            if (cursor == null) {
+                episodes = episodeRepository.findFirstEpisodesByPodcast(podcastId, limit + 1);
+            } else {
+                episodes = episodeRepository.findNextEpisodesByPodcast(podcastId, cursor, limit + 1);
+            }
+        } else if (Boolean.TRUE.equals(isPublic)) {
+            // Filtro por públicos
+            if (cursor == null) {
+                episodes = episodeRepository.findFirstPublicEpisodes(limit + 1);
+            } else {
+                episodes = episodeRepository.findNextPublicEpisodes(cursor, limit + 1);
+            }
         } else {
-            episodes = episodeRepository.findNextEpisodes(cursor, limit + 1);
+            // Sin filtros, todos los episodios
+            if (cursor == null) {
+                episodes = episodeRepository.findFirstEpisodes(limit + 1);
+            } else {
+                episodes = episodeRepository.findNextEpisodes(cursor, limit + 1);
+            }
         }
 
         return buildPaginatedResponse(episodes, limit);
     }
 
+    /**
+     * @deprecated Use findAll(cursor, limit, isPublic, podcastId, title) instead
+     */
+    @Deprecated
     public PaginatedResponse<Episode> findByPodcastId(String podcastId, Instant cursor, int limit) {
-        log.debug("Finding episodes by podcast: {} with cursor: {} and limit: {}", podcastId, cursor, limit);
-
-        List<Episode> episodes;
-        if (cursor == null) {
-            episodes = episodeRepository.findFirstEpisodesByPodcast(podcastId, limit + 1);
-        } else {
-            episodes = episodeRepository.findNextEpisodesByPodcast(podcastId, cursor, limit + 1);
-        }
-
-        return buildPaginatedResponse(episodes, limit);
+        return findAll(cursor, limit, null, podcastId, null);
     }
 
+    /**
+     * @deprecated Use findAll(cursor, limit, isPublic, podcastId, title) instead
+     */
+    @Deprecated
     public PaginatedResponse<Episode> searchByTitle(String title, Instant cursor, int limit) {
-        log.debug("Searching episodes by title: {} with cursor: {} and limit: {}", title, cursor, limit);
-
-        List<Episode> episodes;
-        if (cursor == null) {
-            episodes = episodeRepository.findFirstEpisodesByTitle(title, limit + 1);
-        } else {
-            episodes = episodeRepository.findNextEpisodesByTitle(title, cursor, limit + 1);
-        }
-
-        return buildPaginatedResponse(episodes, limit);
+        return findAll(cursor, limit, null, null, title);
     }
 
+    /**
+     * @deprecated Use findAll(cursor, limit, isPublic, podcastId, title) instead
+     */
+    @Deprecated
     public PaginatedResponse<Episode> findPublicEpisodes(Instant cursor, int limit) {
-        log.debug("Finding public episodes with cursor: {} and limit: {}", cursor, limit);
-
-        List<Episode> episodes;
-        if (cursor == null) {
-            episodes = episodeRepository.findFirstPublicEpisodes(limit + 1);
-        } else {
-            episodes = episodeRepository.findNextPublicEpisodes(cursor, limit + 1);
-        }
-
-        return buildPaginatedResponse(episodes, limit);
+        return findAll(cursor, limit, true, null, null);
     }
 
     public long countByPodcastId(String podcastId) {

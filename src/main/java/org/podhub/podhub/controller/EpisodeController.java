@@ -2,9 +2,12 @@ package org.podhub.podhub.controller;
 
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.podhub.podhub.dto.CountResponse;
 import org.podhub.podhub.dto.PaginatedResponse;
 import org.podhub.podhub.model.Episode;
+import org.podhub.podhub.model.EpisodeLike;
 import org.podhub.podhub.service.EpisodeService;
+import org.podhub.podhub.service.EpisodeLikeService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -18,6 +21,7 @@ import java.time.Instant;
 public class EpisodeController {
 
     private final EpisodeService episodeService;
+    private final EpisodeLikeService episodeLikeService;
 
     /**
      * POST /api/episodes
@@ -74,60 +78,52 @@ public class EpisodeController {
     }
 
     /**
-     * GET /api/episodes?cursor=2024-01-15T10:30:00Z&limit=20
-     * Lista todos los episodios con paginación cursor-based
+     * GET /api/episodes?cursor={timestamp}&limit={number}&isPublic={boolean}&podcastId={id}&title={query}
+     * Lista episodios con filtros opcionales y paginación cursor-based
      *
-     * Primera página: GET /api/episodes?limit=20
-     * Siguiente página: GET /api/episodes?cursor={nextCursor}&limit=20
+     * Ejemplos:
+     * - GET /api/episodes?limit=20                        (todos los episodios)
+     * - GET /api/episodes?isPublic=true                   (solo públicos)
+     * - GET /api/episodes?podcastId={id}                  (por podcast)
+     * - GET /api/episodes?title=tech                      (búsqueda por título)
+     * - GET /api/episodes?cursor={timestamp}&limit=20     (siguiente página)
      */
     @GetMapping
     @PreAuthorize("hasAuthority('EPISODE_READ')")
     public ResponseEntity<PaginatedResponse<Episode>> getAllEpisodes(
             @RequestParam(required = false) String cursor,
-            @RequestParam(defaultValue = "20") int limit) {
+            @RequestParam(defaultValue = "20") int limit,
+            @RequestParam(required = false) Boolean isPublic,
+            @RequestParam(required = false) String podcastId,
+            @RequestParam(required = false) String title) {
         Instant cursorInstant = cursor != null ? Instant.parse(cursor) : null;
-        PaginatedResponse<Episode> response = episodeService.findAll(cursorInstant, limit);
+        PaginatedResponse<Episode> response = episodeService.findAll(cursorInstant, limit, isPublic, podcastId, title);
         return ResponseEntity.ok(response);
     }
 
     /**
-     * GET /api/episodes/public?cursor=2024-01-15T10:30:00Z&limit=20
-     * Lista solo episodios públicos con paginación cursor-based
+     * GET /api/episodes/{episodeId}/likes?cursor={timestamp}&limit={number}&count={boolean}
+     * List likes on an episode or get like count
+     *
+     * @param episodeId The episode ID
+     * @param cursor Optional timestamp cursor for pagination
+     * @param limit Page size (default: 20)
+     * @param count If true, returns only count; if false/null, returns paginated list
+     * @return Paginated list of likes or count response
      */
-    @GetMapping("/public")
-    public ResponseEntity<PaginatedResponse<Episode>> getPublicEpisodes(
+    @GetMapping("/{episodeId}/likes")
+    public ResponseEntity<?> getEpisodeLikes(
+            @PathVariable String episodeId,
             @RequestParam(required = false) String cursor,
-            @RequestParam(defaultValue = "20") int limit) {
-        Instant cursorInstant = cursor != null ? Instant.parse(cursor) : null;
-        PaginatedResponse<Episode> response = episodeService.findPublicEpisodes(cursorInstant, limit);
-        return ResponseEntity.ok(response);
-    }
-
-    /**
-     * GET /api/episodes/podcast/{podcastId}?cursor=2024-01-15T10:30:00Z&limit=20
-     * Lista episodios de un podcast específico con paginación cursor-based
-     */
-    @GetMapping("/podcast/{podcastId}")
-    public ResponseEntity<PaginatedResponse<Episode>> getEpisodesByPodcast(
-            @PathVariable String podcastId,
-            @RequestParam(required = false) String cursor,
-            @RequestParam(defaultValue = "20") int limit) {
-        Instant cursorInstant = cursor != null ? Instant.parse(cursor) : null;
-        PaginatedResponse<Episode> response = episodeService.findByPodcastId(podcastId, cursorInstant, limit);
-        return ResponseEntity.ok(response);
-    }
-
-    /**
-     * GET /api/episodes/search?title=tech&cursor=2024-01-15T10:30:00Z&limit=20
-     * Busca episodios por título con paginación cursor-based
-     */
-    @GetMapping("/search")
-    public ResponseEntity<PaginatedResponse<Episode>> searchEpisodes(
-            @RequestParam String title,
-            @RequestParam(required = false) String cursor,
-            @RequestParam(defaultValue = "20") int limit) {
-        Instant cursorInstant = cursor != null ? Instant.parse(cursor) : null;
-        PaginatedResponse<Episode> response = episodeService.searchByTitle(title, cursorInstant, limit);
-        return ResponseEntity.ok(response);
+            @RequestParam(defaultValue = "20") int limit,
+            @RequestParam(required = false) Boolean count) {
+        if (Boolean.TRUE.equals(count)) {
+            long likeCount = episodeLikeService.countByEpisodeId(episodeId);
+            return ResponseEntity.ok(CountResponse.builder().count(likeCount).build());
+        } else {
+            Instant cursorInstant = cursor != null ? Instant.parse(cursor) : null;
+            PaginatedResponse<EpisodeLike> response = episodeLikeService.findByEpisodeId(episodeId, cursorInstant, limit);
+            return ResponseEntity.ok(response);
+        }
     }
 }

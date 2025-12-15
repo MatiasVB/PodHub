@@ -2,7 +2,8 @@
 
 # =====================================================
 # PodHub API Testing Script
-# Tests all 52 REST endpoints using cURL
+# Tests all ~28-30 REST endpoints using cURL
+# Consolidated API with query parameter filtering
 # =====================================================
 
 # Configuration
@@ -68,9 +69,9 @@ execute_test() {
 }
 
 # =====================================================
-# PODCAST CONTROLLER (9 endpoints)
+# PODCAST CONTROLLER (Query Filtering)
 # =====================================================
-print_header "PODCAST CONTROLLER - 9 Endpoints"
+print_header "PODCAST CONTROLLER - Query Filtering"
 
 # 1. Create Podcast
 execute_test "POST /api/podcasts - Create podcast" \
@@ -85,15 +86,14 @@ execute_test "POST /api/podcasts - Create podcast" \
     \"public\": true
   }'"
 
-# 2. Get Podcast by ID
+# 2. Get Podcast by ID or Slug
 execute_test "GET /api/podcasts/{id} - Get podcast by ID" \
 "curl -X GET ${BASE_URL}/api/podcasts/${PODCAST_ID}"
 
-# 3. Get Podcast by Slug
-execute_test "GET /api/podcasts/slug/{slug} - Get podcast by slug" \
-"curl -X GET ${BASE_URL}/api/podcasts/slug/tech-talk-daily"
+execute_test "GET /api/podcasts/{slug} - Get podcast by slug" \
+"curl -X GET ${BASE_URL}/api/podcasts/tech-talk-daily"
 
-# 4. Update Podcast
+# 3. Update Podcast
 execute_test "PUT /api/podcasts/{id} - Update podcast" \
 "curl -X PUT ${BASE_URL}/api/podcasts/${PODCAST_ID} \
   -H 'Content-Type: application/json' \
@@ -107,30 +107,37 @@ execute_test "PUT /api/podcasts/{id} - Update podcast" \
     \"public\": true
   }'"
 
-# 5. List All Podcasts (with pagination)
+# 4. List Podcasts with Query Filtering
 execute_test "GET /api/podcasts - List all podcasts" \
 "curl -X GET '${BASE_URL}/api/podcasts?limit=10'"
 
-# 6. List Public Podcasts
-execute_test "GET /api/podcasts/public - List public podcasts" \
-"curl -X GET '${BASE_URL}/api/podcasts/public?limit=10'"
+execute_test "GET /api/podcasts?isPublic=true - Filter by public" \
+"curl -X GET '${BASE_URL}/api/podcasts?isPublic=true&limit=10'"
 
-# 7. List Podcasts by Creator
-execute_test "GET /api/podcasts/creator/{creatorId} - List podcasts by creator" \
-"curl -X GET '${BASE_URL}/api/podcasts/creator/${CREATOR_ID}?limit=10'"
+execute_test "GET /api/podcasts?creatorId={id} - Filter by creator" \
+"curl -X GET '${BASE_URL}/api/podcasts?creatorId=${CREATOR_ID}&limit=10'"
 
-# 8. Search Podcasts by Title
-execute_test "GET /api/podcasts/search - Search podcasts by title" \
-"curl -X GET '${BASE_URL}/api/podcasts/search?title=Tech&limit=10'"
+execute_test "GET /api/podcasts?title={query} - Search by title" \
+"curl -X GET '${BASE_URL}/api/podcasts?title=Tech&limit=10'"
 
-# 9. Delete Podcast (commented out to avoid accidental deletion)
+execute_test "GET /api/podcasts - Multiple filters" \
+"curl -X GET '${BASE_URL}/api/podcasts?isPublic=true&creatorId=${CREATOR_ID}&limit=10'"
+
+# 5. List Podcast Subscribers
+execute_test "GET /api/podcasts/{id}/subscribers - List subscribers" \
+"curl -X GET '${BASE_URL}/api/podcasts/${PODCAST_ID}/subscribers?limit=10'"
+
+execute_test "GET /api/podcasts/{id}/subscribers?count=true - Count subscribers" \
+"curl -X GET '${BASE_URL}/api/podcasts/${PODCAST_ID}/subscribers?count=true'"
+
+# 6. Delete Podcast (commented out to avoid accidental deletion)
 # execute_test "DELETE /api/podcasts/{id} - Delete podcast" \
 # "curl -X DELETE ${BASE_URL}/api/podcasts/${PODCAST_ID}"
 
 # =====================================================
-# EPISODE CONTROLLER (8 endpoints)
+# EPISODE CONTROLLER (Query Filtering)
 # =====================================================
-print_header "EPISODE CONTROLLER - 8 Endpoints"
+print_header "EPISODE CONTROLLER - Query Filtering"
 
 # 1. Create Episode
 execute_test "POST /api/episodes - Create episode" \
@@ -161,23 +168,30 @@ execute_test "PUT /api/episodes/{id} - Update episode" \
     \"publishAt\": \"$(date -u +%Y-%m-%dT%H:%M:%SZ)\"
   }'"
 
-# 4. List All Episodes
+# 4. List Episodes with Query Filtering
 execute_test "GET /api/episodes - List all episodes" \
 "curl -X GET '${BASE_URL}/api/episodes?limit=10'"
 
-# 5. List Public Episodes
-execute_test "GET /api/episodes/public - List public episodes" \
-"curl -X GET '${BASE_URL}/api/episodes/public?limit=10'"
+execute_test "GET /api/episodes?isPublic=true - Filter by public" \
+"curl -X GET '${BASE_URL}/api/episodes?isPublic=true&limit=10'"
 
-# 6. List Episodes by Podcast
-execute_test "GET /api/episodes/podcast/{podcastId} - List episodes by podcast" \
-"curl -X GET '${BASE_URL}/api/episodes/podcast/${PODCAST_ID}?limit=10'"
+execute_test "GET /api/episodes?podcastId={id} - Filter by podcast" \
+"curl -X GET '${BASE_URL}/api/episodes?podcastId=${PODCAST_ID}&limit=10'"
 
-# 7. Search Episodes by Title
-execute_test "GET /api/episodes/search - Search episodes by title" \
-"curl -X GET '${BASE_URL}/api/episodes/search?title=AI&limit=10'"
+execute_test "GET /api/episodes?title={query} - Search by title" \
+"curl -X GET '${BASE_URL}/api/episodes?title=AI&limit=10'"
 
-# 8. Delete Episode (commented out to avoid accidental deletion)
+execute_test "GET /api/episodes - Multiple filters" \
+"curl -X GET '${BASE_URL}/api/episodes?isPublic=true&podcastId=${PODCAST_ID}&limit=10'"
+
+# 5. List Episode Likes
+execute_test "GET /api/episodes/{id}/likes - List likes" \
+"curl -X GET '${BASE_URL}/api/episodes/${EPISODE_ID}/likes?limit=10'"
+
+execute_test "GET /api/episodes/{id}/likes?count=true - Count likes" \
+"curl -X GET '${BASE_URL}/api/episodes/${EPISODE_ID}/likes?count=true'"
+
+# 6. Delete Episode (commented out to avoid accidental deletion)
 # execute_test "DELETE /api/episodes/{id} - Delete episode" \
 # "curl -X DELETE ${BASE_URL}/api/episodes/${EPISODE_ID}"
 

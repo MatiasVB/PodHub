@@ -258,14 +258,66 @@ class UserControllerTest {
     }
 
     // ===========================
-    // SEARCH TESTS
+    // LIST TESTS - QUERY FILTERING (NEW)
     // ===========================
 
     @Test
     @Order(10)
-    @DisplayName("GET /api/users/search - Search users by name")
-    void testSearchUsersByName() throws Exception {
-        mockMvc.perform(get("/api/users/search")
+    @DisplayName("GET /api/users?role={roleName} - Filter by role (CREATOR)")
+    void testGetUsersFilterByRole() throws Exception {
+        mockMvc.perform(get("/api/users")
+                        .param("role", "CREATOR")
+                        .param("limit", "20"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data").isArray())
+                .andExpect(jsonPath("$.data", hasSize(greaterThan(0))))
+                .andExpect(jsonPath("$.data[*].roleIds").exists());
+    }
+
+    @Test
+    @Order(11)
+    @DisplayName("GET /api/users?role={roleName} - Filter by role (USER)")
+    void testGetUsersFilterByRoleUser() throws Exception {
+        mockMvc.perform(get("/api/users")
+                        .param("role", "USER")
+                        .param("limit", "20"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data").isArray())
+                .andExpect(jsonPath("$.data", hasSize(greaterThan(0))))
+                .andExpect(jsonPath("$.data[*].roleIds").exists());
+    }
+
+    @Test
+    @Order(12)
+    @DisplayName("GET /api/users?status={status} - Filter by status (ACTIVE)")
+    void testGetUsersFilterByStatus() throws Exception {
+        mockMvc.perform(get("/api/users")
+                        .param("status", "ACTIVE")
+                        .param("limit", "20"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data").isArray())
+                .andExpect(jsonPath("$.data", hasSize(greaterThan(0))))
+                .andExpect(jsonPath("$.data[*].status").value(everyItem(is("ACTIVE"))));
+    }
+
+    @Test
+    @Order(13)
+    @DisplayName("GET /api/users?status={status} - Filter by status (SUSPENDED)")
+    void testGetUsersFilterByStatusSuspended() throws Exception {
+        mockMvc.perform(get("/api/users")
+                        .param("status", "SUSPENDED")
+                        .param("limit", "20"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data").isArray())
+                .andExpect(jsonPath("$.data", hasSize(greaterThan(0))))
+                .andExpect(jsonPath("$.data[*].status").value(everyItem(is("SUSPENDED"))));
+    }
+
+    @Test
+    @Order(14)
+    @DisplayName("GET /api/users?name={query} - Filter by name")
+    void testGetUsersFilterByName() throws Exception {
+        mockMvc.perform(get("/api/users")
                         .param("name", "john")
                         .param("limit", "20"))
                 .andExpect(status().isOk())
@@ -273,10 +325,10 @@ class UserControllerTest {
     }
 
     @Test
-    @Order(11)
-    @DisplayName("GET /api/users/search - Empty results for non-matching search")
-    void testSearchUsersNoResults() throws Exception {
-        mockMvc.perform(get("/api/users/search")
+    @Order(15)
+    @DisplayName("GET /api/users?name={query} - Empty results for non-matching search")
+    void testGetUsersFilterByNameNoResults() throws Exception {
+        mockMvc.perform(get("/api/users")
                         .param("name", "NonExistentUserXYZ123")
                         .param("limit", "20"))
                 .andExpect(status().isOk())
@@ -286,67 +338,14 @@ class UserControllerTest {
     }
 
     @Test
-    @Order(12)
-    @DisplayName("GET /api/users/search - Fail without required name parameter (400 Bad Request)")
-    void testSearchUsersMissingName() throws Exception {
-        mockMvc.perform(get("/api/users/search")
-                        .param("limit", "20"))
-                .andExpect(status().isBadRequest());
-    }
-
-    // ===========================
-    // FILTER TESTS - BY ROLE
-    // ===========================
-
-    @Test
-    @Order(13)
-    @DisplayName("GET /api/users/role/{role} - List users by role (CREATOR)")
-    void testGetUsersByRole() throws Exception {
-        mockMvc.perform(get("/api/users/role/{role}", "CREATOR")
-                        .param("limit", "20"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data").isArray())
-                .andExpect(jsonPath("$.data", hasSize(greaterThan(0))))
-                .andExpect(jsonPath("$.data[*].roleIds").exists());
-    }
-
-    @Test
-    @Order(14)
-    @DisplayName("GET /api/users/role/{role} - List users by role (USER)")
-    void testGetUsersByRoleUser() throws Exception {
-        mockMvc.perform(get("/api/users/role/{role}", "USER")
-                        .param("limit", "20"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data").isArray())
-                .andExpect(jsonPath("$.data", hasSize(greaterThan(0))))
-                .andExpect(jsonPath("$.data[*].roleIds").exists());
-    }
-
-    // ===========================
-    // FILTER TESTS - BY STATUS
-    // ===========================
-
-    @Test
-    @Order(15)
-    @DisplayName("GET /api/users/status/{status} - List users by status (ACTIVE)")
-    void testGetUsersByStatus() throws Exception {
-        mockMvc.perform(get("/api/users/status/{status}", "ACTIVE")
-                        .param("limit", "20"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data").isArray())
-                .andExpect(jsonPath("$.data", hasSize(greaterThan(0))))
-                .andExpect(jsonPath("$.data[*].status").value(everyItem(is("ACTIVE"))));
-    }
-
-    @Test
     @Order(16)
-    @DisplayName("GET /api/users/status/{status} - List users by status (SUSPENDED)")
-    void testGetUsersByStatusSuspended() throws Exception {
-        mockMvc.perform(get("/api/users/status/{status}", "SUSPENDED")
+    @DisplayName("GET /api/users?role={roleName}&status={status} - Multiple filters")
+    void testGetUsersMultipleFilters() throws Exception {
+        mockMvc.perform(get("/api/users")
+                        .param("role", "USER")
+                        .param("status", "ACTIVE")
                         .param("limit", "20"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data").isArray())
-                .andExpect(jsonPath("$.data", hasSize(greaterThan(0))))
-                .andExpect(jsonPath("$.data[*].status").value(everyItem(is("SUSPENDED"))));
+                .andExpect(jsonPath("$.data").isArray());
     }
 }

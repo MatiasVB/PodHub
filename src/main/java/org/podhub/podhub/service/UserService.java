@@ -56,73 +56,78 @@ public class UserService {
     }
 
     /**
-     * Obtiene todos los usuarios con paginación cursor-based
+     * Obtiene todos los usuarios con paginación cursor-based y filtros opcionales
      *
      * @param cursor Timestamp del último elemento (null para primera página)
-     * @param limit  Número máximo de elementos a retornar
+     * @param limit Número máximo de elementos a retornar
+     * @param name Filtro opcional por búsqueda en nombre
+     * @param roleId Filtro opcional por rol
+     * @param status Filtro opcional por estado
      * @return Respuesta paginada con cursor para siguiente página
      */
-    public PaginatedResponse<User> findAll(Instant cursor, int limit) {
-        log.debug("Finding all users with cursor: {} and limit: {}", cursor, limit);
+    public PaginatedResponse<User> findAll(Instant cursor, int limit, String name, String roleId, String status) {
+        log.debug("Finding users with cursor: {}, limit: {}, name: {}, roleId: {}, status: {}",
+                  cursor, limit, name, roleId, status);
 
-        // Agregar 1 al límite para detectar si hay más elementos
         List<User> users;
-        if (cursor == null) {
-            users = userRepository.findFirstUsers(limit + 1);
+
+        // Determinar qué método del repository usar según los filtros
+        if (name != null && !name.trim().isEmpty()) {
+            // Búsqueda por nombre tiene prioridad
+            if (cursor == null) {
+                users = userRepository.findFirstUsersByName(name, limit + 1);
+            } else {
+                users = userRepository.findNextUsersByName(name, cursor, limit + 1);
+            }
+        } else if (roleId != null && !roleId.trim().isEmpty()) {
+            // Filtro por rol
+            if (cursor == null) {
+                users = userRepository.findFirstUsersByRoleId(roleId, limit + 1);
+            } else {
+                users = userRepository.findNextUsersByRoleId(roleId, cursor, limit + 1);
+            }
+        } else if (status != null && !status.trim().isEmpty()) {
+            // Filtro por estado
+            UserStatus userStatus = UserStatus.valueOf(status.toUpperCase());
+            if (cursor == null) {
+                users = userRepository.findFirstUsersByStatus(userStatus, limit + 1);
+            } else {
+                users = userRepository.findNextUsersByStatus(userStatus, cursor, limit + 1);
+            }
         } else {
-            users = userRepository.findNextUsers(cursor, limit + 1);
+            // Sin filtros, todos los usuarios
+            if (cursor == null) {
+                users = userRepository.findFirstUsers(limit + 1);
+            } else {
+                users = userRepository.findNextUsers(cursor, limit + 1);
+            }
         }
 
         return buildPaginatedResponse(users, limit);
     }
 
     /**
-     * Obtiene los usuarios por estado con paginación cursor-based
+     * @deprecated Use findAll(cursor, limit, name, roleId, status) instead
      */
+    @Deprecated
     public PaginatedResponse<User> findByStatus(UserStatus status, Instant cursor, int limit) {
-        log.debug("Finding users by status: {} with cursor: {} and limit: {}", status, cursor, limit);
-
-        List<User> users;
-        if (cursor == null) {
-            users = userRepository.findFirstUsersByStatus(status, limit + 1);
-        } else {
-            users = userRepository.findNextUsersByStatus(status, cursor, limit + 1);
-        }
-
-        return buildPaginatedResponse(users, limit);
+        return findAll(cursor, limit, null, null, status.name());
     }
 
     /**
-     * Obtiene los usuarios por rol con paginación cursor-based
-     * @param roleId ID del rol a buscar
+     * @deprecated Use findAll(cursor, limit, name, roleId, status) instead
      */
+    @Deprecated
     public PaginatedResponse<User> findByRoleId(String roleId, Instant cursor, int limit) {
-        log.debug("Finding users by roleId: {} with cursor: {} and limit: {}", roleId, cursor, limit);
-
-        List<User> users;
-        if (cursor == null) {
-            users = userRepository.findFirstUsersByRoleId(roleId, limit + 1);
-        } else {
-            users = userRepository.findNextUsersByRoleId(roleId, cursor, limit + 1);
-        }
-
-        return buildPaginatedResponse(users, limit);
+        return findAll(cursor, limit, null, roleId, null);
     }
 
     /**
-     * Busca usuarios por nombre con paginación cursor-based
+     * @deprecated Use findAll(cursor, limit, name, roleId, status) instead
      */
+    @Deprecated
     public PaginatedResponse<User> searchByName(String name, Instant cursor, int limit) {
-        log.debug("Searching users by name: {} with cursor: {} and limit: {}", name, cursor, limit);
-
-        List<User> users;
-        if (cursor == null) {
-            users = userRepository.findFirstUsersByName(name, limit + 1);
-        } else {
-            users = userRepository.findNextUsersByName(name, cursor, limit + 1);
-        }
-
-        return buildPaginatedResponse(users, limit);
+        return findAll(cursor, limit, name, null, null);
     }
 
     public User updateUser(String id, User updated) {

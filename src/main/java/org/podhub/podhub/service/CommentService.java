@@ -35,6 +35,110 @@ public class CommentService {
         return commentRepository.findById(id);
     }
 
+    /**
+     * Obtiene todos los comentarios con paginación cursor-based y filtros opcionales
+     *
+     * @param cursor Timestamp del último elemento (null para primera página)
+     * @param limit Número máximo de elementos a retornar
+     * @param podcastId Filtro opcional por podcast
+     * @param episodeId Filtro opcional por episodio
+     * @param parentId Filtro opcional por comentario padre (replies)
+     * @param status Filtro opcional por estado del comentario
+     * @return Respuesta paginada con cursor para siguiente página
+     */
+    public PaginatedResponse<Comment> findAll(Instant cursor, int limit, String podcastId, String episodeId, String parentId, String status) {
+        log.debug("Finding comments with cursor: {}, limit: {}, podcastId: {}, episodeId: {}, parentId: {}, status: {}",
+                  cursor, limit, podcastId, episodeId, parentId, status);
+
+        List<Comment> comments;
+
+        // Determinar qué método del repository usar según los filtros
+        if (podcastId != null && !podcastId.trim().isEmpty()) {
+            // Filtro por podcast
+            if (cursor == null) {
+                comments = commentRepository.findFirstCommentsByTarget(CommentTargetType.PODCAST, podcastId, limit + 1);
+            } else {
+                comments = commentRepository.findNextCommentsByTarget(CommentTargetType.PODCAST, podcastId, cursor, limit + 1);
+            }
+        } else if (episodeId != null && !episodeId.trim().isEmpty()) {
+            // Filtro por episodio
+            if (cursor == null) {
+                comments = commentRepository.findFirstCommentsByTarget(CommentTargetType.EPISODE, episodeId, limit + 1);
+            } else {
+                comments = commentRepository.findNextCommentsByTarget(CommentTargetType.EPISODE, episodeId, cursor, limit + 1);
+            }
+        } else if (parentId != null && !parentId.trim().isEmpty()) {
+            // Filtro por padre (replies)
+            if (cursor == null) {
+                comments = commentRepository.findFirstCommentsByParent(parentId, limit + 1);
+            } else {
+                comments = commentRepository.findNextCommentsByParent(parentId, cursor, limit + 1);
+            }
+        } else if (status != null && !status.trim().isEmpty()) {
+            // Filtro por estado
+            CommentStatus commentStatus = CommentStatus.valueOf(status.toUpperCase());
+            if (cursor == null) {
+                comments = commentRepository.findFirstCommentsByStatus(commentStatus, limit + 1);
+            } else {
+                comments = commentRepository.findNextCommentsByStatus(commentStatus, cursor, limit + 1);
+            }
+        } else {
+            // Sin filtros, no tiene sentido listar todos los comentarios sin filtro
+            // Retornar lista vacía
+            comments = List.of();
+        }
+
+        return buildPaginatedResponse(comments, limit);
+    }
+
+    /**
+     * @deprecated Use findAll(cursor, limit, null, null, null, status) instead
+     */
+    @Deprecated
+    public PaginatedResponse<Comment> findByStatus(CommentStatus status, Instant cursor, int limit) {
+        return findAll(cursor, limit, null, null, null, status.name());
+    }
+
+    /**
+     * @deprecated Use findAll(cursor, limit, null, null, parentId, null) instead
+     */
+    @Deprecated
+    public PaginatedResponse<Comment> findByParent(String parentId, Instant cursor, int limit) {
+        return findAll(cursor, limit, null, null, parentId, null);
+    }
+
+    /**
+     * @deprecated Use findAll(cursor, limit, podcastId, episodeId, null, null) instead
+     */
+    @Deprecated
+    public PaginatedResponse<Comment> findByTarget(CommentTargetType type, String targetId, Instant cursor, int limit) {
+        if (type == CommentTargetType.PODCAST) {
+            return findAll(cursor, limit, targetId, null, null, null);
+        } else {
+            return findAll(cursor, limit, null, targetId, null, null);
+        }
+    }
+
+    /**
+     * @deprecated Use findAll instead
+     */
+    @Deprecated
+    public PaginatedResponse<Comment> findByTargetId(String targetId, Instant cursor, int limit) {
+        return findAll(cursor, limit, null, targetId, null, null);
+    }
+
+    /**
+     * @deprecated Use findAll instead
+     */
+    @Deprecated
+    public PaginatedResponse<Comment> findThread(String targetId, Instant cursor, int limit) {
+        return findAll(cursor, limit, null, targetId, null, null);
+    }
+
+    /**
+     * @deprecated Use findAll instead
+     */
+    @Deprecated
     public PaginatedResponse<Comment> findByUserId(String userId, Instant cursor, int limit) {
         log.debug("Finding comments by user: {} with cursor: {} and limit: {}", userId, cursor, limit);
 
@@ -43,71 +147,6 @@ public class CommentService {
             comments = commentRepository.findFirstCommentsByUser(userId, limit + 1);
         } else {
             comments = commentRepository.findNextCommentsByUser(userId, cursor, limit + 1);
-        }
-
-        return buildPaginatedResponse(comments, limit);
-    }
-
-    public PaginatedResponse<Comment> findByTargetId(String targetId, Instant cursor, int limit) {
-        log.debug("Finding comments by target: {} with cursor: {} and limit: {}", targetId, cursor, limit);
-
-        List<Comment> comments;
-        if (cursor == null) {
-            comments = commentRepository.findFirstCommentsByTargetId(targetId, limit + 1);
-        } else {
-            comments = commentRepository.findNextCommentsByTargetId(targetId, cursor, limit + 1);
-        }
-
-        return buildPaginatedResponse(comments, limit);
-    }
-
-    public PaginatedResponse<Comment> findByTarget(CommentTargetType type, String targetId, Instant cursor, int limit) {
-        log.debug("Finding comments by target type: {} and id: {} with cursor: {} and limit: {}", type, targetId, cursor, limit);
-
-        List<Comment> comments;
-        if (cursor == null) {
-            comments = commentRepository.findFirstCommentsByTarget(type, targetId, limit + 1);
-        } else {
-            comments = commentRepository.findNextCommentsByTarget(type, targetId, cursor, limit + 1);
-        }
-
-        return buildPaginatedResponse(comments, limit);
-    }
-
-    public PaginatedResponse<Comment> findThread(String targetId, Instant cursor, int limit) {
-        log.debug("Finding thread comments for target: {} with cursor: {} and limit: {}", targetId, cursor, limit);
-
-        List<Comment> comments;
-        if (cursor == null) {
-            comments = commentRepository.findFirstThreadComments(targetId, limit + 1);
-        } else {
-            comments = commentRepository.findNextThreadComments(targetId, cursor, limit + 1);
-        }
-
-        return buildPaginatedResponse(comments, limit);
-    }
-
-    public PaginatedResponse<Comment> findByParent(String parentId, Instant cursor, int limit) {
-        log.debug("Finding replies for comment: {} with cursor: {} and limit: {}", parentId, cursor, limit);
-
-        List<Comment> comments;
-        if (cursor == null) {
-            comments = commentRepository.findFirstCommentsByParent(parentId, limit + 1);
-        } else {
-            comments = commentRepository.findNextCommentsByParent(parentId, cursor, limit + 1);
-        }
-
-        return buildPaginatedResponse(comments, limit);
-    }
-
-    public PaginatedResponse<Comment> findByStatus(CommentStatus status, Instant cursor, int limit) {
-        log.debug("Finding comments by status: {} with cursor: {} and limit: {}", status, cursor, limit);
-
-        List<Comment> comments;
-        if (cursor == null) {
-            comments = commentRepository.findFirstCommentsByStatus(status, limit + 1);
-        } else {
-            comments = commentRepository.findNextCommentsByStatus(status, cursor, limit + 1);
         }
 
         return buildPaginatedResponse(comments, limit);

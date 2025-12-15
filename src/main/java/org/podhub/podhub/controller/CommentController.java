@@ -77,86 +77,38 @@ public class CommentController {
     }
 
     /**
-     * GET /api/comments/podcast/{podcastId}?cursor=2024-01-15T10:30:00Z&limit=20
-     * Lista comentarios de un podcast específico con paginación cursor-based
+     * GET /api/comments?cursor={timestamp}&limit={number}&podcastId={id}&episodeId={id}&parentId={id}&status={status}
+     * Lista comentarios con filtros opcionales y paginación cursor-based
+     *
+     * Ejemplos:
+     * - GET /api/comments?podcastId={id}                 (comentarios de podcast)
+     * - GET /api/comments?episodeId={id}                 (comentarios de episodio)
+     * - GET /api/comments?parentId={id}                  (respuestas a comentario)
+     * - GET /api/comments?status=PENDING                 (por estado - requiere ADMIN)
+     * - GET /api/comments?cursor={timestamp}&limit=20    (siguiente página)
+     *
+     * Nota: Al menos un filtro es requerido (no se puede listar todos los comentarios sin filtro)
      */
-    @GetMapping("/podcast/{podcastId}")
-    public ResponseEntity<PaginatedResponse<Comment>> getCommentsByPodcast(
-            @PathVariable String podcastId,
+    @GetMapping
+    public ResponseEntity<PaginatedResponse<Comment>> getAllComments(
             @RequestParam(required = false) String cursor,
-            @RequestParam(defaultValue = "20") int limit) {
-        Instant cursorInstant = cursor != null ? Instant.parse(cursor) : null;
-        PaginatedResponse<Comment> response = commentService.findByTarget(CommentTargetType.PODCAST, podcastId, cursorInstant, limit);
-        return ResponseEntity.ok(response);
-    }
-
-    /**
-     * GET /api/comments/episode/{episodeId}?cursor=2024-01-15T10:30:00Z&limit=20
-     * Lista comentarios de un episodio específico con paginación cursor-based
-     */
-    @GetMapping("/episode/{episodeId}")
-    public ResponseEntity<PaginatedResponse<Comment>> getCommentsByEpisode(
-            @PathVariable String episodeId,
-            @RequestParam(required = false) String cursor,
-            @RequestParam(defaultValue = "20") int limit) {
-        Instant cursorInstant = cursor != null ? Instant.parse(cursor) : null;
-        PaginatedResponse<Comment> response = commentService.findByTarget(CommentTargetType.EPISODE, episodeId, cursorInstant, limit);
-        return ResponseEntity.ok(response);
-    }
-
-    /**
-     * GET /api/comments/parent/{parentId}?cursor=2024-01-15T10:30:00Z&limit=20
-     * Lista respuestas (comentarios hijos) de un comentario padre con paginación cursor-based
-     */
-    @GetMapping("/parent/{parentId}")
-    public ResponseEntity<PaginatedResponse<Comment>> getCommentsByParent(
-            @PathVariable String parentId,
-            @RequestParam(required = false) String cursor,
-            @RequestParam(defaultValue = "20") int limit) {
-        Instant cursorInstant = cursor != null ? Instant.parse(cursor) : null;
-        PaginatedResponse<Comment> response = commentService.findByParent(parentId, cursorInstant, limit);
-        return ResponseEntity.ok(response);
-    }
-
-    /**
-     * GET /api/comments/status/{status}?cursor=2024-01-15T10:30:00Z&limit=20
-     * Lista comentarios por estado (PENDING/APPROVED/REJECTED) con paginación cursor-based
-     */
-    @GetMapping("/status/{status}")
-    @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<PaginatedResponse<Comment>> getCommentsByStatus(
-            @PathVariable String status,
-            @RequestParam(required = false) String cursor,
-            @RequestParam(defaultValue = "20") int limit) {
+            @RequestParam(defaultValue = "20") int limit,
+            @RequestParam(required = false) String podcastId,
+            @RequestParam(required = false) String episodeId,
+            @RequestParam(required = false) String parentId,
+            @RequestParam(required = false) String status) {
         Instant cursorInstant = cursor != null ? Instant.parse(cursor) : null;
 
-        // Convertir String -> Enum y delegar el 400 a tu GlobalExceptionHandler
-        final CommentStatus statusEnum;
-        try {
-            statusEnum = CommentStatus.valueOf(status.toUpperCase());
-        } catch (IllegalArgumentException e) {
-            throw new BadRequestException("Valor de 'status' inválido: " + status);
+        // Validar status si se proporciona
+        if (status != null && !status.trim().isEmpty()) {
+            try {
+                CommentStatus.valueOf(status.toUpperCase());
+            } catch (IllegalArgumentException e) {
+                throw new BadRequestException("Valor de 'status' inválido: " + status);
+            }
         }
 
-        PaginatedResponse<Comment> response = commentService.findByStatus(statusEnum, cursorInstant, limit);
+        PaginatedResponse<Comment> response = commentService.findAll(cursorInstant, limit, podcastId, episodeId, parentId, status);
         return ResponseEntity.ok(response);
     }
-
-
-    /*
-     * GET /api/comments?cursor=2024-01-15T10:30:00Z&limit=20
-     * Lista todos los comentarios con paginación cursor-based
-     *
-     * Primera página: GET /api/comments?limit=20
-     * Siguiente página: GET /api/comments?cursor={nextCursor}&limit=20
-     *
-     @GetMapping
-     public ResponseEntity<PaginatedResponse<Comment>> getAllComments(
-     @RequestParam(required = false) String cursor,
-     @RequestParam(defaultValue = "20") int limit) {
-     Instant cursorInstant = cursor != null ? Instant.parse(cursor) : null;
-     PaginatedResponse<Comment> response = commentService.findAll(cursorInstant, limit);
-     return ResponseEntity.ok(response);
-     }
-     */
 }

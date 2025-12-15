@@ -247,43 +247,42 @@ class EpisodeControllerTest {
     }
 
     // ===========================
-    // LIST TESTS - PUBLIC ONLY
+    // LIST TESTS - QUERY FILTERING (NEW)
     // ===========================
 
     @Test
     @Order(9)
-    @DisplayName("GET /api/episodes/public - List only public episodes")
-    void testGetPublicEpisodes() throws Exception {
-        mockMvc.perform(get("/api/episodes/public")
+    @DisplayName("GET /api/episodes?isPublic=true - Filter by public")
+    void testGetEpisodesFilterByPublic() throws Exception {
+        mockMvc.perform(get("/api/episodes")
+                        .param("isPublic", "true")
                         .param("limit", "20"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data").isArray())
                 .andExpect(jsonPath("$.data", hasSize(greaterThan(0))));
     }
 
-    // ===========================
-    // LIST TESTS - BY PODCAST
-    // ===========================
-
     @Test
     @Order(10)
-    @DisplayName("GET /api/episodes/podcast/{podcastId} - List episodes by podcast")
-    void testGetEpisodesByPodcast() throws Exception {
-        mockMvc.perform(get("/api/episodes/podcast/{podcastId}", testPodcastId)
+    @DisplayName("GET /api/episodes?podcastId={id} - Filter by podcast")
+    void testGetEpisodesFilterByPodcast() throws Exception {
+        mockMvc.perform(get("/api/episodes")
+                        .param("podcastId", testPodcastId)
                         .param("limit", "20"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data").isArray())
                 .andExpect(jsonPath("$.data", hasSize(greaterThan(0))))
-                .andExpect(jsonPath("$.data[*].podcastId").value(everyItem(is(testPodcastId))));
+                .andExpect(jsonPath("$.data[0].podcastId").value(testPodcastId));
     }
 
     @Test
     @Order(11)
-    @DisplayName("GET /api/episodes/podcast/{podcastId} - Empty list for non-existent podcast")
-    void testGetEpisodesByPodcastEmpty() throws Exception {
+    @DisplayName("GET /api/episodes?podcastId={id} - Empty list for non-existent podcast")
+    void testGetEpisodesFilterByPodcastEmpty() throws Exception {
         String nonExistentPodcastId = "000000000000000000000000";
 
-        mockMvc.perform(get("/api/episodes/podcast/{podcastId}", nonExistentPodcastId)
+        mockMvc.perform(get("/api/episodes")
+                        .param("podcastId", nonExistentPodcastId)
                         .param("limit", "20"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data").isArray())
@@ -291,15 +290,11 @@ class EpisodeControllerTest {
                 .andExpect(jsonPath("$.hasMore").value(false));
     }
 
-    // ===========================
-    // SEARCH TESTS
-    // ===========================
-
     @Test
     @Order(12)
-    @DisplayName("GET /api/episodes/search - Search episodes by title")
-    void testSearchEpisodesByTitle() throws Exception {
-        mockMvc.perform(get("/api/episodes/search")
+    @DisplayName("GET /api/episodes?title={query} - Filter by title")
+    void testGetEpisodesFilterByTitle() throws Exception {
+        mockMvc.perform(get("/api/episodes")
                         .param("title", "AI")
                         .param("limit", "20"))
                 .andExpect(status().isOk())
@@ -308,9 +303,9 @@ class EpisodeControllerTest {
 
     @Test
     @Order(13)
-    @DisplayName("GET /api/episodes/search - Empty results for non-matching search")
-    void testSearchEpisodesNoResults() throws Exception {
-        mockMvc.perform(get("/api/episodes/search")
+    @DisplayName("GET /api/episodes?title={query} - Empty results for non-matching search")
+    void testGetEpisodesFilterByTitleNoResults() throws Exception {
+        mockMvc.perform(get("/api/episodes")
                         .param("title", "NonExistentEpisodeXYZ123")
                         .param("limit", "20"))
                 .andExpect(status().isOk())
@@ -321,10 +316,39 @@ class EpisodeControllerTest {
 
     @Test
     @Order(14)
-    @DisplayName("GET /api/episodes/search - Fail without required title parameter (400 Bad Request)")
-    void testSearchEpisodesMissingTitle() throws Exception {
-        mockMvc.perform(get("/api/episodes/search")
+    @DisplayName("GET /api/episodes?isPublic=true&podcastId={id} - Multiple filters")
+    void testGetEpisodesMultipleFilters() throws Exception {
+        mockMvc.perform(get("/api/episodes")
+                        .param("isPublic", "true")
+                        .param("podcastId", testPodcastId)
                         .param("limit", "20"))
-                .andExpect(status().isBadRequest());
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data").isArray());
+    }
+
+    // ===========================
+    // LIST TESTS - LIKES ENDPOINT (NEW)
+    // ===========================
+
+    @Test
+    @Order(15)
+    @DisplayName("GET /api/episodes/{id}/likes - List likes")
+    void testGetEpisodeLikes() throws Exception {
+        mockMvc.perform(get("/api/episodes/{episodeId}/likes", testEpisodeId)
+                        .param("limit", "20"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data").isArray())
+                .andExpect(jsonPath("$.count").isNumber())
+                .andExpect(jsonPath("$.hasMore").isBoolean());
+    }
+
+    @Test
+    @Order(16)
+    @DisplayName("GET /api/episodes/{id}/likes?count=true - Count likes")
+    void testGetEpisodeLikesCount() throws Exception {
+        mockMvc.perform(get("/api/episodes/{episodeId}/likes", testEpisodeId)
+                        .param("count", "true"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.count").isNumber());
     }
 }

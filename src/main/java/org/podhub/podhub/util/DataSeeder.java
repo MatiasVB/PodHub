@@ -9,6 +9,8 @@ import org.podhub.podhub.model.enums.UserRole;
 import org.podhub.podhub.model.enums.UserStatus;
 import org.podhub.podhub.repository.*;
 import org.springframework.boot.CommandLineRunner;
+import org.springframework.core.annotation.Order;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Component;
 
 import java.time.Instant;
@@ -25,7 +27,8 @@ import java.util.Set;
  */
 @Slf4j
 @RequiredArgsConstructor
-// @Component  // Uncomment to run automatically on startup
+@Component  // Uncomment to run automatically on startup
+@Order(2)
 public class DataSeeder implements CommandLineRunner {
 
     private final UserRepository userRepository;
@@ -45,8 +48,8 @@ public class DataSeeder implements CommandLineRunner {
 
     @Override
     public void run(String... args) {
-        // Only run if explicitly enabled
-        log.info("DataSeeder: Use seedData() method to populate test data");
+        log.info("DataSeeder: Checking if test data seeding is needed...");
+        seedData(); // Ejecuta automáticamente (el método ya verifica si hay datos)
     }
 
     /**
@@ -56,13 +59,7 @@ public class DataSeeder implements CommandLineRunner {
     public void seedData() {
         log.info("Starting data seeding...");
 
-        // Check if data already exists
-        if (userRepository.count() > 0) {
-            log.warn("Database already contains data. Skipping seeding to avoid duplicates.");
-            log.info("If you want to re-seed, please clear the database first.");
-            return;
-        }
-
+        // Create users (each user checks if it exists before creating)
         seedUsers();
         seedPodcasts();
         seedEpisodes();
@@ -87,74 +84,152 @@ public class DataSeeder implements CommandLineRunner {
         Role userRole = roleRepository.findByName(UserRole.USER)
                 .orElseThrow(() -> new RuntimeException("User role not found. Run DataInitializer first."));
 
-        // Admin user
-        User admin = new User();
-        admin.setUsername("admin");
-        admin.setEmail("admin@podhub.com");
-        admin.setPasswordHash("$2a$10$hashedpassword"); // In real app, use BCrypt
-        admin.setRoleIds(Set.of(adminRole.getId()));
-        admin.setStatus(UserStatus.ACTIVE);
-        admin.setCreatedAt(Instant.now().minusSeconds(86400 * 30)); // 30 days ago
-        admin.setUpdatedAt(admin.getCreatedAt());
-        admin = userRepository.save(admin);
+        // Admin user (skip if already exists - created by DataInitializer)
+        User admin = userRepository.findByUsername("admin").orElse(null);
+        if (admin == null) {
+            try {
+                admin = new User();
+                admin.setUsername("admin");
+                admin.setEmail("admin@podhub.com");
+                admin.setPasswordHash("$2a$10$hashedpassword"); // In real app, use BCrypt
+                admin.setRoleIds(Set.of(adminRole.getId()));
+                admin.setStatus(UserStatus.ACTIVE);
+                admin.setCreatedAt(Instant.now().minusSeconds(86400 * 30)); // 30 days ago
+                admin.setUpdatedAt(admin.getCreatedAt());
+                admin = userRepository.save(admin);
+                log.debug("Created admin user");
+            } catch (DuplicateKeyException e) {
+                log.debug("Admin user already exists (duplicate key error), fetching it");
+                admin = userRepository.findByUsername("admin")
+                        .or(() -> userRepository.findByEmail("admin@podhub.com"))
+                        .orElseThrow(() -> new RuntimeException("Admin user exists but cannot be found"));
+            }
+        } else {
+            log.debug("Admin user already exists, skipping");
+        }
         userIds.add(admin.getId());
 
         // Creator users
-        User creator1 = new User();
-        creator1.setUsername("john_creator");
-        creator1.setEmail("john@podhub.com");
-        creator1.setPasswordHash("$2a$10$hashedpassword");
-        creator1.setRoleIds(Set.of(creatorRole.getId()));
-        creator1.setStatus(UserStatus.ACTIVE);
-        creator1.setCreatedAt(Instant.now().minusSeconds(86400 * 25));
-        creator1.setUpdatedAt(creator1.getCreatedAt());
-        creator1 = userRepository.save(creator1);
+        User creator1 = userRepository.findByUsername("john_creator").orElse(null);
+        if (creator1 == null) {
+            try {
+                creator1 = new User();
+                creator1.setUsername("john_creator");
+                creator1.setEmail("john@podhub.com");
+                creator1.setPasswordHash("$2a$10$hashedpassword");
+                creator1.setRoleIds(Set.of(creatorRole.getId()));
+                creator1.setStatus(UserStatus.ACTIVE);
+                creator1.setCreatedAt(Instant.now().minusSeconds(86400 * 25));
+                creator1.setUpdatedAt(creator1.getCreatedAt());
+                creator1 = userRepository.save(creator1);
+                log.debug("Created john_creator user");
+            } catch (DuplicateKeyException e) {
+                log.debug("john_creator user already exists (duplicate key error), fetching it");
+                creator1 = userRepository.findByUsername("john_creator")
+                        .or(() -> userRepository.findByEmail("john@podhub.com"))
+                        .orElseThrow(() -> new RuntimeException("john_creator user exists but cannot be found"));
+            }
+        } else {
+            log.debug("john_creator user already exists, skipping");
+        }
         userIds.add(creator1.getId());
 
-        User creator2 = new User();
-        creator2.setUsername("jane_creator");
-        creator2.setEmail("jane@podhub.com");
-        creator2.setPasswordHash("$2a$10$hashedpassword");
-        creator2.setRoleIds(Set.of(creatorRole.getId()));
-        creator2.setStatus(UserStatus.ACTIVE);
-        creator2.setCreatedAt(Instant.now().minusSeconds(86400 * 20));
-        creator2.setUpdatedAt(creator2.getCreatedAt());
-        creator2 = userRepository.save(creator2);
+        User creator2 = userRepository.findByUsername("jane_creator").orElse(null);
+        if (creator2 == null) {
+            try {
+                creator2 = new User();
+                creator2.setUsername("jane_creator");
+                creator2.setEmail("jane@podhub.com");
+                creator2.setPasswordHash("$2a$10$hashedpassword");
+                creator2.setRoleIds(Set.of(creatorRole.getId()));
+                creator2.setStatus(UserStatus.ACTIVE);
+                creator2.setCreatedAt(Instant.now().minusSeconds(86400 * 20));
+                creator2.setUpdatedAt(creator2.getCreatedAt());
+                creator2 = userRepository.save(creator2);
+                log.debug("Created jane_creator user");
+            } catch (DuplicateKeyException e) {
+                log.debug("jane_creator user already exists (duplicate key error), fetching it");
+                creator2 = userRepository.findByUsername("jane_creator")
+                        .or(() -> userRepository.findByEmail("jane@podhub.com"))
+                        .orElseThrow(() -> new RuntimeException("jane_creator user exists but cannot be found"));
+            }
+        } else {
+            log.debug("jane_creator user already exists, skipping");
+        }
         userIds.add(creator2.getId());
 
         // Listener users
-        User listener1 = new User();
-        listener1.setUsername("alice_listener");
-        listener1.setEmail("alice@podhub.com");
-        listener1.setPasswordHash("$2a$10$hashedpassword");
-        listener1.setRoleIds(Set.of(userRole.getId()));
-        listener1.setStatus(UserStatus.ACTIVE);
-        listener1.setCreatedAt(Instant.now().minusSeconds(86400 * 15));
-        listener1.setUpdatedAt(listener1.getCreatedAt());
-        listener1 = userRepository.save(listener1);
+        User listener1 = userRepository.findByUsername("alice_listener").orElse(null);
+        if (listener1 == null) {
+            try {
+                listener1 = new User();
+                listener1.setUsername("alice_listener");
+                listener1.setEmail("alice@podhub.com");
+                listener1.setPasswordHash("$2a$10$hashedpassword");
+                listener1.setRoleIds(Set.of(userRole.getId()));
+                listener1.setStatus(UserStatus.ACTIVE);
+                listener1.setCreatedAt(Instant.now().minusSeconds(86400 * 15));
+                listener1.setUpdatedAt(listener1.getCreatedAt());
+                listener1 = userRepository.save(listener1);
+                log.debug("Created alice_listener user");
+            } catch (DuplicateKeyException e) {
+                log.debug("alice_listener user already exists (duplicate key error), fetching it");
+                listener1 = userRepository.findByUsername("alice_listener")
+                        .or(() -> userRepository.findByEmail("alice@podhub.com"))
+                        .orElseThrow(() -> new RuntimeException("alice_listener user exists but cannot be found"));
+            }
+        } else {
+            log.debug("alice_listener user already exists, skipping");
+        }
         userIds.add(listener1.getId());
 
-        User listener2 = new User();
-        listener2.setUsername("bob_listener");
-        listener2.setEmail("bob@podhub.com");
-        listener2.setPasswordHash("$2a$10$hashedpassword");
-        listener2.setRoleIds(Set.of(userRole.getId()));
-        listener2.setStatus(UserStatus.ACTIVE);
-        listener2.setCreatedAt(Instant.now().minusSeconds(86400 * 10));
-        listener2.setUpdatedAt(listener2.getCreatedAt());
-        listener2 = userRepository.save(listener2);
+        User listener2 = userRepository.findByUsername("bob_listener").orElse(null);
+        if (listener2 == null) {
+            try {
+                listener2 = new User();
+                listener2.setUsername("bob_listener");
+                listener2.setEmail("bob@podhub.com");
+                listener2.setPasswordHash("$2a$10$hashedpassword");
+                listener2.setRoleIds(Set.of(userRole.getId()));
+                listener2.setStatus(UserStatus.ACTIVE);
+                listener2.setCreatedAt(Instant.now().minusSeconds(86400 * 10));
+                listener2.setUpdatedAt(listener2.getCreatedAt());
+                listener2 = userRepository.save(listener2);
+                log.debug("Created bob_listener user");
+            } catch (DuplicateKeyException e) {
+                log.debug("bob_listener user already exists (duplicate key error), fetching it");
+                listener2 = userRepository.findByUsername("bob_listener")
+                        .or(() -> userRepository.findByEmail("bob@podhub.com"))
+                        .orElseThrow(() -> new RuntimeException("bob_listener user exists but cannot be found"));
+            }
+        } else {
+            log.debug("bob_listener user already exists, skipping");
+        }
         userIds.add(listener2.getId());
 
         // Suspended user
-        User suspended = new User();
-        suspended.setUsername("suspended_user");
-        suspended.setEmail("suspended@podhub.com");
-        suspended.setPasswordHash("$2a$10$hashedpassword");
-        suspended.setRoleIds(Set.of(userRole.getId()));
-        suspended.setStatus(UserStatus.SUSPENDED);
-        suspended.setCreatedAt(Instant.now().minusSeconds(86400 * 5));
-        suspended.setUpdatedAt(Instant.now());
-        suspended = userRepository.save(suspended);
+        User suspended = userRepository.findByUsername("suspended_user").orElse(null);
+        if (suspended == null) {
+            try {
+                suspended = new User();
+                suspended.setUsername("suspended_user");
+                suspended.setEmail("suspended@podhub.com");
+                suspended.setPasswordHash("$2a$10$hashedpassword");
+                suspended.setRoleIds(Set.of(userRole.getId()));
+                suspended.setStatus(UserStatus.SUSPENDED);
+                suspended.setCreatedAt(Instant.now().minusSeconds(86400 * 5));
+                suspended.setUpdatedAt(Instant.now());
+                suspended = userRepository.save(suspended);
+                log.debug("Created suspended_user");
+            } catch (DuplicateKeyException e) {
+                log.debug("suspended_user already exists (duplicate key error), fetching it");
+                suspended = userRepository.findByUsername("suspended_user")
+                        .or(() -> userRepository.findByEmail("suspended@podhub.com"))
+                        .orElseThrow(() -> new RuntimeException("suspended_user exists but cannot be found"));
+            }
+        } else {
+            log.debug("suspended_user already exists, skipping");
+        }
         userIds.add(suspended.getId());
 
         log.debug("Created {} users", userIds.size());
@@ -167,53 +242,101 @@ public class DataSeeder implements CommandLineRunner {
         String creator2Id = userIds.get(2); // jane_creator
 
         // Public podcasts
-        Podcast tech = new Podcast();
-        tech.setTitle("Tech Talk Daily");
-        tech.setSlug("tech-talk-daily");
-        tech.setDescription("Daily discussions about the latest in technology");
-        tech.setCategory("Technology");
-        tech.setCreatorId(creator1Id);
-        tech.setIsPublic(true);
-        tech.setCreatedAt(Instant.now().minusSeconds(86400 * 20));
-        tech.setUpdatedAt(tech.getCreatedAt());
-        tech = podcastRepository.save(tech);
+        Podcast tech = podcastRepository.findBySlug("tech-talk-daily").orElse(null);
+        if (tech == null) {
+            try {
+                tech = new Podcast();
+                tech.setTitle("Tech Talk Daily");
+                tech.setSlug("tech-talk-daily");
+                tech.setDescription("Daily discussions about the latest in technology");
+                tech.setCategory("Technology");
+                tech.setCreatorId(creator1Id);
+                tech.setIsPublic(true);
+                tech.setCreatedAt(Instant.now().minusSeconds(86400 * 20));
+                tech.setUpdatedAt(tech.getCreatedAt());
+                tech = podcastRepository.save(tech);
+                log.debug("Created tech-talk-daily podcast");
+            } catch (DuplicateKeyException e) {
+                log.debug("tech-talk-daily podcast already exists (duplicate key error), fetching it");
+                tech = podcastRepository.findBySlug("tech-talk-daily")
+                        .orElseThrow(() -> new RuntimeException("tech-talk-daily podcast exists but cannot be found"));
+            }
+        } else {
+            log.debug("tech-talk-daily podcast already exists, skipping");
+        }
         podcastIds.add(tech.getId());
 
-        Podcast business = new Podcast();
-        business.setTitle("Business Insights");
-        business.setSlug("business-insights");
-        business.setDescription("Insights from successful entrepreneurs and business leaders");
-        business.setCategory("Business");
-        business.setCreatorId(creator1Id);
-        business.setIsPublic(true);
-        business.setCreatedAt(Instant.now().minusSeconds(86400 * 18));
-        business.setUpdatedAt(business.getCreatedAt());
-        business = podcastRepository.save(business);
+        Podcast business = podcastRepository.findBySlug("business-insights").orElse(null);
+        if (business == null) {
+            try {
+                business = new Podcast();
+                business.setTitle("Business Insights");
+                business.setSlug("business-insights");
+                business.setDescription("Insights from successful entrepreneurs and business leaders");
+                business.setCategory("Business");
+                business.setCreatorId(creator1Id);
+                business.setIsPublic(true);
+                business.setCreatedAt(Instant.now().minusSeconds(86400 * 18));
+                business.setUpdatedAt(business.getCreatedAt());
+                business = podcastRepository.save(business);
+                log.debug("Created business-insights podcast");
+            } catch (DuplicateKeyException e) {
+                log.debug("business-insights podcast already exists (duplicate key error), fetching it");
+                business = podcastRepository.findBySlug("business-insights")
+                        .orElseThrow(() -> new RuntimeException("business-insights podcast exists but cannot be found"));
+            }
+        } else {
+            log.debug("business-insights podcast already exists, skipping");
+        }
         podcastIds.add(business.getId());
 
-        Podcast comedy = new Podcast();
-        comedy.setTitle("The Comedy Hour");
-        comedy.setSlug("the-comedy-hour");
-        comedy.setDescription("Stand-up comedy and funny stories");
-        comedy.setCategory("Comedy");
-        comedy.setCreatorId(creator2Id);
-        comedy.setIsPublic(true);
-        comedy.setCreatedAt(Instant.now().minusSeconds(86400 * 15));
-        comedy.setUpdatedAt(comedy.getCreatedAt());
-        comedy = podcastRepository.save(comedy);
+        Podcast comedy = podcastRepository.findBySlug("the-comedy-hour").orElse(null);
+        if (comedy == null) {
+            try {
+                comedy = new Podcast();
+                comedy.setTitle("The Comedy Hour");
+                comedy.setSlug("the-comedy-hour");
+                comedy.setDescription("Stand-up comedy and funny stories");
+                comedy.setCategory("Comedy");
+                comedy.setCreatorId(creator2Id);
+                comedy.setIsPublic(true);
+                comedy.setCreatedAt(Instant.now().minusSeconds(86400 * 15));
+                comedy.setUpdatedAt(comedy.getCreatedAt());
+                comedy = podcastRepository.save(comedy);
+                log.debug("Created the-comedy-hour podcast");
+            } catch (DuplicateKeyException e) {
+                log.debug("the-comedy-hour podcast already exists (duplicate key error), fetching it");
+                comedy = podcastRepository.findBySlug("the-comedy-hour")
+                        .orElseThrow(() -> new RuntimeException("the-comedy-hour podcast exists but cannot be found"));
+            }
+        } else {
+            log.debug("the-comedy-hour podcast already exists, skipping");
+        }
         podcastIds.add(comedy.getId());
 
         // Private podcast
-        Podcast premium = new Podcast();
-        premium.setTitle("Premium Content");
-        premium.setSlug("premium-content");
-        premium.setDescription("Exclusive content for subscribers only");
-        premium.setCategory("Education");
-        premium.setCreatorId(creator2Id);
-        premium.setIsPublic(false);
-        premium.setCreatedAt(Instant.now().minusSeconds(86400 * 10));
-        premium.setUpdatedAt(premium.getCreatedAt());
-        premium = podcastRepository.save(premium);
+        Podcast premium = podcastRepository.findBySlug("premium-content").orElse(null);
+        if (premium == null) {
+            try {
+                premium = new Podcast();
+                premium.setTitle("Premium Content");
+                premium.setSlug("premium-content");
+                premium.setDescription("Exclusive content for subscribers only");
+                premium.setCategory("Education");
+                premium.setCreatorId(creator2Id);
+                premium.setIsPublic(false);
+                premium.setCreatedAt(Instant.now().minusSeconds(86400 * 10));
+                premium.setUpdatedAt(premium.getCreatedAt());
+                premium = podcastRepository.save(premium);
+                log.debug("Created premium-content podcast");
+            } catch (DuplicateKeyException e) {
+                log.debug("premium-content podcast already exists (duplicate key error), fetching it");
+                premium = podcastRepository.findBySlug("premium-content")
+                        .orElseThrow(() -> new RuntimeException("premium-content podcast exists but cannot be found"));
+            }
+        } else {
+            log.debug("premium-content podcast already exists, skipping");
+        }
         podcastIds.add(premium.getId());
 
         log.debug("Created {} podcasts", podcastIds.size());
@@ -221,6 +344,17 @@ public class DataSeeder implements CommandLineRunner {
 
     private void seedEpisodes() {
         log.debug("Seeding episodes...");
+
+        // Skip if episodes already seeded
+        if (!episodeIds.isEmpty()) {
+            log.debug("Episodes already seeded, skipping");
+            // Re-populate episodeIds from database for downstream dependencies
+            episodeIds.addAll(episodeRepository.findAll().stream()
+                    .map(Episode::getId)
+                    .limit(7)
+                    .toList());
+            return;
+        }
 
         String podcast1Id = podcastIds.get(0); // Tech Talk Daily
         String podcast2Id = podcastIds.get(1); // Business Insights
@@ -312,6 +446,17 @@ public class DataSeeder implements CommandLineRunner {
     private void seedComments() {
         log.debug("Seeding comments...");
 
+        // Skip if comments already seeded
+        if (!commentIds.isEmpty()) {
+            log.debug("Comments already seeded, skipping");
+            // Re-populate commentIds from database for downstream dependencies
+            commentIds.addAll(commentRepository.findAll().stream()
+                    .map(Comment::getId)
+                    .limit(4)
+                    .toList());
+            return;
+        }
+
         String listener1Id = userIds.get(3); // alice_listener
         String listener2Id = userIds.get(4); // bob_listener
         String podcast1Id = podcastIds.get(0);
@@ -378,6 +523,12 @@ public class DataSeeder implements CommandLineRunner {
     private void seedSubscriptions() {
         log.debug("Seeding subscriptions...");
 
+        // Skip if subscriptions already exist
+        if (subscriptionRepository.count() > 0) {
+            log.debug("Subscriptions already exist, skipping");
+            return;
+        }
+
         String listener1Id = userIds.get(3); // alice_listener
         String listener2Id = userIds.get(4); // bob_listener
         String podcast1Id = podcastIds.get(0); // Tech Talk Daily
@@ -421,6 +572,12 @@ public class DataSeeder implements CommandLineRunner {
 
     private void seedLikes() {
         log.debug("Seeding episode likes...");
+
+        // Skip if episode likes already exist
+        if (episodeLikeRepository.count() > 0) {
+            log.debug("Episode likes already exist, skipping");
+            return;
+        }
 
         String listener1Id = userIds.get(3); // alice_listener
         String listener2Id = userIds.get(4); // bob_listener
@@ -466,6 +623,12 @@ public class DataSeeder implements CommandLineRunner {
 
     private void seedListeningProgress() {
         log.debug("Seeding listening progress...");
+
+        // Skip if listening progress already exists
+        if (listeningProgressRepository.count() > 0) {
+            log.debug("Listening progress already exists, skipping");
+            return;
+        }
 
         String listener1Id = userIds.get(3); // alice_listener
         String listener2Id = userIds.get(4); // bob_listener

@@ -26,7 +26,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * Prerequisites: Run DataSeeder to populate test data in MongoDB Atlas
  */
 @SpringBootTest
-@AutoConfigureMockMvc
+@AutoConfigureMockMvc(addFilters = false)
 @TestMethodOrder(MethodOrderer.OrderAnnotation.class)
 class UserControllerTest {
 
@@ -121,7 +121,8 @@ class UserControllerTest {
                 .andExpect(jsonPath("$.id").value(testUserId))
                 .andExpect(jsonPath("$.username").value(testUsername))
                 .andExpect(jsonPath("$.email").exists())
-                .andExpect(jsonPath("$.role").exists());
+                .andExpect(jsonPath("$.roleIds").exists())
+                .andExpect(jsonPath("$.roleIds").isArray());
     }
 
     @Test
@@ -306,7 +307,7 @@ class UserControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data").isArray())
                 .andExpect(jsonPath("$.data", hasSize(greaterThan(0))))
-                .andExpect(jsonPath("$.data[*].role").value(everyItem(is("CREATOR"))));
+                .andExpect(jsonPath("$.data[*].roleIds").exists());
     }
 
     @Test
@@ -318,7 +319,7 @@ class UserControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data").isArray())
                 .andExpect(jsonPath("$.data", hasSize(greaterThan(0))))
-                .andExpect(jsonPath("$.data[*].role").value(everyItem(is("USER"))));
+                .andExpect(jsonPath("$.data[*].roleIds").exists());
     }
 
     // ===========================

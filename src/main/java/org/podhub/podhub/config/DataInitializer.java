@@ -9,6 +9,7 @@ import org.podhub.podhub.repository.RoleRepository;
 import org.podhub.podhub.repository.UserRepository;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.annotation.Order;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
 import java.time.Instant;
@@ -18,6 +19,7 @@ import java.util.UUID;
 
 @Configuration
 @RequiredArgsConstructor
+@Order(1)
 public class DataInitializer implements CommandLineRunner {
 
     private final RoleRepository roleRepository;

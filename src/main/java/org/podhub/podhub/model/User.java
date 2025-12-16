@@ -33,6 +33,7 @@ public class User {
 
     private String displayName;
     private String avatarUrl;
+    private String bio;
 
     // Referencias a Role por id (sin DBRef)
     @Builder.Default

@@ -4,13 +4,18 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.podhub.podhub.dto.CountResponse;
 import org.podhub.podhub.dto.PaginatedResponse;
+import org.podhub.podhub.exception.ResourceNotFoundException;
 import org.podhub.podhub.model.Podcast;
 import org.podhub.podhub.model.Subscription;
+import org.podhub.podhub.model.User;
+import org.podhub.podhub.repository.UserRepository;
 import org.podhub.podhub.service.PodcastService;
 import org.podhub.podhub.service.SubscriptionService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.Instant;
@@ -22,15 +27,26 @@ public class PodcastController {
 
     private final PodcastService podcastService;
     private final SubscriptionService subscriptionService;
+    private final UserRepository userRepository;
 
     /**
      * POST /api/podcasts
      * Crea un nuevo podcast
+     * El usuario será promovido a CREATOR automáticamente en su primera creación
      */
     @PostMapping
-    @PreAuthorize("hasAuthority('PODCAST_WRITE')")
-    public ResponseEntity<Podcast> createPodcast(@Valid @RequestBody Podcast podcast) {
-        Podcast created = podcastService.createPodcast(podcast);
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<Podcast> createPodcast(
+            @Valid @RequestBody Podcast podcast,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        String email = userDetails.getUsername(); // Username es el email del usuario autenticado
+
+        // Buscar usuario por email para obtener su ID de MongoDB
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+
+        String userId = user.getId();
+        Podcast created = podcastService.createPodcast(podcast, userId);
         return ResponseEntity.status(HttpStatus.CREATED).body(created);
     }
 
@@ -49,33 +65,38 @@ public class PodcastController {
     /**
      * PUT /api/podcasts/{id}
      * Actualiza un podcast existente
+     * Solo el creador del podcast puede actualizarlo
      */
     @PutMapping("/{id}")
     @PreAuthorize("hasAuthority('PODCAST_WRITE')")
     public ResponseEntity<Podcast> updatePodcast(
             @PathVariable String id,
-            @Valid @RequestBody Podcast podcast) {
-        try {
-            Podcast updated = podcastService.updatePodcast(id, podcast);
-            return ResponseEntity.ok(updated);
-        } catch (IllegalArgumentException e) {
-            return ResponseEntity.notFound().build();
-        }
+            @Valid @RequestBody Podcast podcast,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        String email = userDetails.getUsername();
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+        String userId = user.getId();
+        Podcast updated = podcastService.updatePodcast(id, podcast, userId);
+        return ResponseEntity.ok(updated);
     }
 
     /**
      * DELETE /api/podcasts/{id}
      * Elimina un podcast por ID
+     * Solo el creador del podcast puede eliminarlo
      */
     @DeleteMapping("/{id}")
     @PreAuthorize("hasAuthority('PODCAST_WRITE')")
-    public ResponseEntity<Void> deletePodcast(@PathVariable String id) {
-        try {
-            podcastService.deletePodcast(id);
-            return ResponseEntity.noContent().build();
-        } catch (IllegalArgumentException e) {
-            return ResponseEntity.notFound().build();
-        }
+    public ResponseEntity<Void> deletePodcast(
+            @PathVariable String id,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        String email = userDetails.getUsername();
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+        String userId = user.getId();
+        podcastService.deletePodcast(id, userId);
+        return ResponseEntity.noContent().build();
     }
 
     /**

@@ -4,13 +4,18 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.podhub.podhub.dto.CountResponse;
 import org.podhub.podhub.dto.PaginatedResponse;
+import org.podhub.podhub.exception.ResourceNotFoundException;
 import org.podhub.podhub.model.Episode;
 import org.podhub.podhub.model.EpisodeLike;
+import org.podhub.podhub.model.User;
+import org.podhub.podhub.repository.UserRepository;
 import org.podhub.podhub.service.EpisodeService;
 import org.podhub.podhub.service.EpisodeLikeService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.Instant;
@@ -22,15 +27,23 @@ public class EpisodeController {
 
     private final EpisodeService episodeService;
     private final EpisodeLikeService episodeLikeService;
+    private final UserRepository userRepository;
 
     /**
      * POST /api/episodes
      * Crea un nuevo episodio asociado a un podcast.
+     * Solo el creador del podcast puede crear episodios en él.
      */
     @PostMapping
     @PreAuthorize("hasAuthority('EPISODE_WRITE')")
-    public ResponseEntity<Episode> createEpisode(@Valid @RequestBody Episode episode) {
-        Episode created = episodeService.createEpisode(episode);
+    public ResponseEntity<Episode> createEpisode(
+            @Valid @RequestBody Episode episode,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        String email = userDetails.getUsername();
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+        String userId = user.getId();
+        Episode created = episodeService.createEpisode(episode, userId);
         return ResponseEntity.status(HttpStatus.CREATED).body(created);
     }
 
@@ -48,33 +61,38 @@ public class EpisodeController {
     /**
      * PUT /api/episodes/{id}
      * Actualiza los datos de un episodio existente.
+     * Solo el creador del podcast puede actualizar sus episodios.
      */
     @PutMapping("/{id}")
     @PreAuthorize("hasAuthority('EPISODE_WRITE')")
     public ResponseEntity<Episode> updateEpisode(
             @PathVariable String id,
-            @Valid @RequestBody Episode episode) {
-        try {
-            Episode updated = episodeService.updateEpisode(id, episode);
-            return ResponseEntity.ok(updated);
-        } catch (IllegalArgumentException e) {
-            return ResponseEntity.notFound().build();
-        }
+            @Valid @RequestBody Episode episode,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        String email = userDetails.getUsername();
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+        String userId = user.getId();
+        Episode updated = episodeService.updateEpisode(id, episode, userId);
+        return ResponseEntity.ok(updated);
     }
 
     /**
      * DELETE /api/episodes/{id}
      * Elimina un episodio por su ID.
+     * Solo el creador del podcast puede eliminar sus episodios.
      */
     @DeleteMapping("/{id}")
     @PreAuthorize("hasAuthority('EPISODE_WRITE')")
-    public ResponseEntity<Void> deleteEpisode(@PathVariable String id) {
-        try {
-            episodeService.deleteEpisode(id);
-            return ResponseEntity.noContent().build();
-        } catch (IllegalArgumentException e) {
-            return ResponseEntity.notFound().build();
-        }
+    public ResponseEntity<Void> deleteEpisode(
+            @PathVariable String id,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        String email = userDetails.getUsername();
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+        String userId = user.getId();
+        episodeService.deleteEpisode(id, userId);
+        return ResponseEntity.noContent().build();
     }
 
     /**

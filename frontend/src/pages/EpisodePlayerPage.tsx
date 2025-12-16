@@ -52,23 +52,29 @@ export const EpisodePlayerPage: React.FC = () => {
     },
   });
 
-  // Fetch like status
+  // Fetch like status (v3.0: HEAD request returns 200 OK or 404)
   const { data: isLiked, refetch: refetchLikeStatus } = useQuery({
     queryKey: ['like', user.id, episodeId],
     queryFn: async () => {
-      const response = await likesAPI.checkLikeExists(user.id, episodeId);
-      return response.data;
+      try {
+        await likesAPI.checkLikeExists(user.id, episodeId);
+        return true; // 200 OK means liked
+      } catch (error) {
+        return false; // 404 means not liked
+      }
     },
   });
 
-  // Fetch like count
-  const { data: likeCount } = useQuery({
+  // Fetch like count (v3.0: Returns CountResponse { count: number })
+  const { data: likeCountData } = useQuery({
     queryKey: ['likeCount', episodeId],
     queryFn: async () => {
       const response = await likesAPI.getLikeCount(episodeId);
       return response.data;
     },
   });
+
+  const likeCount = likeCountData?.count;
 
   // Fetch saved progress
   const { data: savedProgress } = useQuery({
@@ -295,6 +301,7 @@ export const EpisodePlayerPage: React.FC = () => {
           comments={commentsData.data}
           target={{ type: 'EPISODE', id: episodeId }}
           queryKey={['comments', 'episode', episodeId]}
+          podcastCreatorId={podcast?.creatorId}
         />
       )}
     </div>

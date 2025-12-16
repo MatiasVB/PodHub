@@ -4,6 +4,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.podhub.podhub.dto.ErrorResponse;
 import org.podhub.podhub.exception.BadRequestException;
 import org.podhub.podhub.exception.ConflictException;
+import org.podhub.podhub.exception.ForbiddenException;
 import org.podhub.podhub.exception.ResourceNotFoundException;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.dao.DuplicateKeyException;
@@ -97,6 +98,20 @@ public class ErrorController {
                 .body(new ErrorResponse(
                         HttpStatus.BAD_REQUEST.value(),
                         HttpStatus.BAD_REQUEST.getReasonPhrase(),
+                        ex.getMessage(),
+                        req.getRequestURI(),
+                        null
+                ));
+    }
+
+    // 403 - Forbidden - Lack of ownership or permissions
+    @ExceptionHandler(ForbiddenException.class)
+    public ResponseEntity<ErrorResponse> handleForbiddenException(ForbiddenException ex, HttpServletRequest req) {
+        log.warn("403 Forbidden: {}", ex.getMessage());
+        return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                .body(new ErrorResponse(
+                        HttpStatus.FORBIDDEN.value(),
+                        HttpStatus.FORBIDDEN.getReasonPhrase(),
                         ex.getMessage(),
                         req.getRequestURI(),
                         null

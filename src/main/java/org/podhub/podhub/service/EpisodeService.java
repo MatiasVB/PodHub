@@ -3,9 +3,12 @@ package org.podhub.podhub.service;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.podhub.podhub.dto.PaginatedResponse;
+import org.podhub.podhub.exception.ForbiddenException;
 import org.podhub.podhub.exception.ResourceNotFoundException;
 import org.podhub.podhub.model.Episode;
+import org.podhub.podhub.model.Podcast;
 import org.podhub.podhub.repository.EpisodeRepository;
+import org.podhub.podhub.repository.PodcastRepository;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
@@ -18,9 +21,40 @@ import java.util.Optional;
 public class EpisodeService {
 
     private final EpisodeRepository episodeRepository;
+    private final PodcastRepository podcastRepository;
 
-    public Episode createEpisode(Episode episode) {
-        log.debug("Creating episode '{}'", episode.getTitle());
+    /**
+     * Validates that the given user owns the podcast to which the episode belongs
+     *
+     * @param podcastId ID of the podcast to check
+     * @param userId ID of the user attempting the operation
+     * @throws ResourceNotFoundException if podcast doesn't exist
+     * @throws ForbiddenException if user doesn't own the podcast
+     */
+    private void validatePodcastOwnership(String podcastId, String userId) {
+        Podcast podcast = podcastRepository.findById(podcastId)
+                .orElseThrow(() -> new ResourceNotFoundException("Podcast not found with id: " + podcastId));
+
+        if (!podcast.getCreatorId().equals(userId)) {
+            throw new ForbiddenException("You do not have permission to modify episodes in this podcast");
+        }
+    }
+
+    /**
+     * Creates a new episode
+     * Validates that the user owns the podcast
+     *
+     * @param episode Episode to create
+     * @param userId ID of the user creating the episode
+     * @return Created episode
+     * @throws ForbiddenException if user doesn't own the podcast
+     */
+    public Episode createEpisode(Episode episode, String userId) {
+        log.debug("Creating episode '{}' in podcast {} by user {}", episode.getTitle(), episode.getPodcastId(), userId);
+
+        // Verify that user owns the podcast
+        validatePodcastOwnership(episode.getPodcastId(), userId);
+
         Instant now = Instant.now();
         episode.setCreatedAt(now);
         episode.setUpdatedAt(now);
@@ -28,7 +62,7 @@ public class EpisodeService {
             episode.setIsPublic(false);
         }
         Episode saved = episodeRepository.save(episode);
-        log.info("Episode created {}", saved.getId());
+        log.info("Episode created {} by user {}", saved.getId(), userId);
         return saved;
     }
 
@@ -114,23 +148,49 @@ public class EpisodeService {
         return episodeRepository.countByPodcastId(podcastId);
     }
 
-    public Episode updateEpisode(String id, Episode updated) {
+    /**
+     * Updates an existing episode
+     * Validates that the user owns the podcast
+     *
+     * @param id ID of the episode to update
+     * @param updated Updated episode data
+     * @param userId ID of the user updating the episode
+     * @return Updated episode
+     * @throws ForbiddenException if user doesn't own the podcast
+     */
+    public Episode updateEpisode(String id, Episode updated, String userId) {
         Episode existing = episodeRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Episode not found: " + id));
+
+        // Verify that user owns the podcast
+        validatePodcastOwnership(existing.getPodcastId(), userId);
+
         updated.setId(id);
+        updated.setPodcastId(existing.getPodcastId()); // Preserve podcast ID
         updated.setCreatedAt(existing.getCreatedAt());
         updated.setUpdatedAt(Instant.now());
         Episode saved = episodeRepository.save(updated);
-        log.info("Episode updated {}", id);
+        log.info("Episode updated {} by user {}", id, userId);
         return saved;
     }
 
-    public void deleteEpisode(String id) {
-        if (!episodeRepository.existsById(id)) {
-            throw new ResourceNotFoundException("Episode not found: " + id);
-        }
+    /**
+     * Deletes an episode
+     * Validates that the user owns the podcast
+     *
+     * @param id ID of the episode to delete
+     * @param userId ID of the user deleting the episode
+     * @throws ForbiddenException if user doesn't own the podcast
+     */
+    public void deleteEpisode(String id, String userId) {
+        Episode episode = episodeRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Episode not found: " + id));
+
+        // Verify that user owns the podcast
+        validatePodcastOwnership(episode.getPodcastId(), userId);
+
         episodeRepository.deleteById(id);
-        log.info("Episode deleted {}", id);
+        log.info("Episode deleted {} by user {}", id, userId);
     }
 
     private PaginatedResponse<Episode> buildPaginatedResponse(List<Episode> episodes, int limit) {

@@ -10,6 +10,7 @@ interface AuthContextType {
   login: (identifier: string, password: string, rememberMe: boolean) => Promise<void>;
   logout: () => void;
   refreshUser: () => void;
+  refreshTokenAndUser: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -90,6 +91,35 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   };
 
+  const refreshTokenAndUser = async (): Promise<void> => {
+    try {
+      const rememberMe = localStorage.getItem('rememberMe') === 'true';
+      const storage = rememberMe ? localStorage : sessionStorage;
+      const refreshToken = storage.getItem('refreshToken');
+
+      if (!refreshToken) {
+        throw new Error('No refresh token available');
+      }
+
+      // Call /auth/refresh to get new token with updated authorities
+      const response = await authAPI.refresh(refreshToken);
+      const { accessToken, refreshToken: newRefreshToken, user: userData } = response.data;
+
+      // Update storage with new tokens and user data
+      storage.setItem('accessToken', accessToken);
+      storage.setItem('refreshToken', newRefreshToken);
+      storage.setItem('user', JSON.stringify(userData));
+
+      // Update AuthProvider state
+      setUser(userData);
+
+      return Promise.resolve();
+    } catch (error) {
+      console.error('Error refreshing token and user:', error);
+      return Promise.reject(error);
+    }
+  };
+
   const value: AuthContextType = {
     user,
     isAuthenticated: !!user,
@@ -97,6 +127,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     login,
     logout,
     refreshUser,
+    refreshTokenAndUser,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

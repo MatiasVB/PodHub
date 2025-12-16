@@ -4,13 +4,18 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.podhub.podhub.dto.PaginatedResponse;
 import org.podhub.podhub.exception.BadRequestException;
+import org.podhub.podhub.exception.ResourceNotFoundException;
 import org.podhub.podhub.model.Comment;
+import org.podhub.podhub.model.User;
 import org.podhub.podhub.model.enums.CommentStatus;
 import org.podhub.podhub.model.enums.CommentTargetType;
+import org.podhub.podhub.repository.UserRepository;
 import org.podhub.podhub.service.CommentService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.Instant;
@@ -21,6 +26,7 @@ import java.time.Instant;
 public class CommentController {
 
     private final CommentService commentService;
+    private final UserRepository userRepository;
 
     /**
      * POST /api/comments
@@ -47,33 +53,38 @@ public class CommentController {
     /**
      * PUT /api/comments/{id}
      * Actualiza un comentario existente
+     * Solo el propietario del comentario puede editarlo
      */
     @PutMapping("/{id}")
-    @PreAuthorize("hasAuthority('EPISODE_WRITE')")
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<Comment> updateComment(
             @PathVariable String id,
-            @Valid @RequestBody Comment comment) {
-        try {
-            Comment updated = commentService.updateComment(id, comment);
-            return ResponseEntity.ok(updated);
-        } catch (IllegalArgumentException e) {
-            return ResponseEntity.notFound().build();
-        }
+            @Valid @RequestBody Comment comment,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        String email = userDetails.getUsername();
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+        String userId = user.getId();
+        Comment updated = commentService.updateComment(id, comment, userId);
+        return ResponseEntity.ok(updated);
     }
 
     /**
      * DELETE /api/comments/{id}
      * Elimina un comentario por ID
+     * Propietario del comentario o creador del podcast/episodio pueden eliminar
      */
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasAuthority('EPISODE_WRITE')")
-    public ResponseEntity<Void> deleteComment(@PathVariable String id) {
-        try {
-            commentService.deleteComment(id);
-            return ResponseEntity.noContent().build();
-        } catch (IllegalArgumentException e) {
-            return ResponseEntity.notFound().build();
-        }
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<Void> deleteComment(
+            @PathVariable String id,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        String email = userDetails.getUsername();
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+        String userId = user.getId();
+        commentService.deleteComment(id, userId);
+        return ResponseEntity.noContent().build();
     }
 
     /**

@@ -41,7 +41,6 @@ export interface UserResponse {
   avatarUrl: string | null;
   bio: string | null;
   roles: string[];
-  rolesIds: string[];
   status: string;
   createdAt: string;
   updatedAt: string;
@@ -71,6 +70,7 @@ export interface Podcast {
 
 export interface CreatePodcastRequest {
   title: string;
+  slug: string;
   description: string;
   language: string;
   category: string;
@@ -157,4 +157,20 @@ export interface ListeningProgress {
   lastListenedAt: string;
 }
 
+// ==================== Request Types (v3.0) ====================
+export interface SubscriptionRequest {
+  podcastId: string;
+}
 
+export interface LikeRequest {
+  episodeId: string;
+}
+
+export interface ProgressRequest {
+  positionSeconds: number;
+  completed: boolean;
+}
+
+export interface CountResponse {
+  count: number;
+}

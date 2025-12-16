@@ -5,8 +5,10 @@ import lombok.extern.slf4j.Slf4j;
 import org.podhub.podhub.dto.PaginatedResponse;
 import org.podhub.podhub.model.Podcast;
 import org.podhub.podhub.repository.PodcastRepository;
+import org.podhub.podhub.security.AuthenticationService;
 import org.springframework.stereotype.Service;
 import org.podhub.podhub.exception.ConflictException;
+import org.podhub.podhub.exception.ForbiddenException;
 import org.podhub.podhub.exception.ResourceNotFoundException;
 
 import java.time.Instant;
@@ -19,17 +21,43 @@ import java.util.Optional;
 public class PodcastService {
 
     private final PodcastRepository podcastRepository;
+    private final AuthenticationService authenticationService;
+
+    /**
+     * Validates that the given user owns the specified podcast
+     *
+     * @param podcastId ID of the podcast to check
+     * @param userId ID of the user attempting the operation
+     * @throws ResourceNotFoundException if podcast doesn't exist
+     * @throws ForbiddenException if user doesn't own the podcast
+     */
+    private void validateOwnership(String podcastId, String userId) {
+        Podcast podcast = podcastRepository.findById(podcastId)
+                .orElseThrow(() -> new ResourceNotFoundException("Podcast not found with id: " + podcastId));
+
+        if (!podcast.getCreatorId().equals(userId)) {
+            throw new ForbiddenException("You do not have permission to modify this podcast");
+        }
+    }
 
     /**
      * Crea un nuevo podcast en la base de datos
      * Valida que el slug sea único y establece fechas automáticamente
+     * Asigna el creador del podcast
+     *
+     * @param podcast Podcast a crear
+     * @param creatorUserId ID del usuario que crea el podcast
+     * @return Podcast creado
      */
-    public Podcast createPodcast(Podcast podcast) {
-        log.debug("Creating new podcast with title: {}", podcast.getTitle());
+    public Podcast createPodcast(Podcast podcast, String creatorUserId) {
+        log.debug("Creating new podcast with title: {} by creator: {}", podcast.getTitle(), creatorUserId);
 
         if (podcastRepository.existsBySlug(podcast.getSlug())) {
-            throw new IllegalArgumentException("Podcast with slug '" + podcast.getSlug() + "' already exists");
+            throw new ConflictException("Podcast with slug '" + podcast.getSlug() + "' already exists");
         }
+
+        // Set creator ID (from authenticated user)
+        podcast.setCreatorId(creatorUserId);
 
         Instant now = Instant.now();
         podcast.setCreatedAt(now);
@@ -40,7 +68,11 @@ public class PodcastService {
         }
 
         Podcast saved = podcastRepository.save(podcast);
-        log.info("Podcast created successfully with id: {}", saved.getId());
+
+        // Promote user to CREATOR on first podcast creation
+        authenticationService.promoteToCreator(creatorUserId);
+
+        log.info("Podcast created successfully with id: {} by creator: {}", saved.getId(), creatorUserId);
         return saved;
     }
 
@@ -154,10 +186,19 @@ public class PodcastService {
 
     /**
      * Actualiza un podcast existente
-     * Valida que exista y que el slug no esté en uso si cambió
+     * Valida que exista, que el usuario sea el creador, y que el slug no esté en uso si cambió
+     *
+     * @param id ID del podcast a actualizar
+     * @param updatedPodcast Datos actualizados del podcast
+     * @param userId ID del usuario que intenta actualizar
+     * @return Podcast actualizado
+     * @throws ForbiddenException si el usuario no es el creador
      */
-    public Podcast updatePodcast(String id, Podcast updatedPodcast) {
-        log.debug("Updating podcast with id: {}", id);
+    public Podcast updatePodcast(String id, Podcast updatedPodcast, String userId) {
+        log.debug("Updating podcast with id: {} by user: {}", id, userId);
+
+        // Verify ownership first
+        validateOwnership(id, userId);
 
         Podcast existingPodcast = podcastRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Podcast not found with id: " + id));
@@ -170,27 +211,31 @@ public class PodcastService {
         }
 
         updatedPodcast.setId(id);
+        updatedPodcast.setCreatorId(existingPodcast.getCreatorId()); // Preserve creator
         updatedPodcast.setCreatedAt(existingPodcast.getCreatedAt());
         updatedPodcast.setUpdatedAt(Instant.now());
 
         Podcast saved = podcastRepository.save(updatedPodcast);
-        log.info("Podcast updated successfully with id: {}", saved.getId());
+        log.info("Podcast updated successfully with id: {} by user: {}", saved.getId(), userId);
         return saved;
     }
 
     /**
      * Elimina un podcast por ID
-     * Valida que exista antes de borrar
+     * Valida que exista y que el usuario sea el creador antes de borrar
+     *
+     * @param id ID del podcast a eliminar
+     * @param userId ID del usuario que intenta eliminar
+     * @throws ForbiddenException si el usuario no es el creador
      */
-    public void deletePodcast(String id) {
-        log.debug("Deleting podcast with id: {}", id);
+    public void deletePodcast(String id, String userId) {
+        log.debug("Deleting podcast with id: {} by user: {}", id, userId);
 
-        if (!podcastRepository.existsById(id)) {
-            throw new ResourceNotFoundException("Podcast not found with id: " + id);
-        }
+        // Verify ownership first
+        validateOwnership(id, userId);
 
         podcastRepository.deleteById(id);
-        log.info("Podcast deleted successfully with id: {}", id);
+        log.info("Podcast deleted successfully with id: {} by user: {}", id, userId);
     }
 
     /**

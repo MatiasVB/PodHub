@@ -1,8 +1,10 @@
 package org.podhub.podhub.security;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.podhub.podhub.dto.*;
 import org.podhub.podhub.exception.InvalidRefreshTokenException;
+import org.podhub.podhub.exception.ResourceNotFoundException;
 import org.podhub.podhub.model.Role;
 import org.podhub.podhub.model.User;
 import org.podhub.podhub.model.RefreshToken;
@@ -20,6 +22,7 @@ import org.springframework.stereotype.Service;
 import java.time.Instant;
 import java.util.*;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class AuthenticationService {
@@ -182,5 +185,31 @@ public class AuthenticationService {
             token.setRevoked(false);
 
             return refreshTokenRepository.save(token);
+        }
+
+        /**
+         * Promotes a user to CREATOR role
+         * Called automatically when user creates their first podcast
+         *
+         * @param userId ID of the user to promote
+         */
+        public void promoteToCreator(String userId) {
+            log.debug("Attempting to promote user {} to CREATOR", userId);
+
+            User user = userRepository.findById(userId)
+                    .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+
+            // Check if user already has CREATOR role
+            Role creatorRole = roleRepository.findByName(UserRole.CREATOR)
+                    .orElseThrow(() -> new ResourceNotFoundException("CREATOR role not found"));
+
+            if (!user.getRoleIds().contains(creatorRole.getId())) {
+                user.getRoleIds().add(creatorRole.getId());
+                user.setUpdatedAt(Instant.now());
+                userRepository.save(user);
+                log.info("User {} promoted to CREATOR", userId);
+            } else {
+                log.debug("User {} already has CREATOR role", userId);
+            }
         }
     }

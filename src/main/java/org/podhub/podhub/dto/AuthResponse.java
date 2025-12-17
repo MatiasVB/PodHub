@@ -1,12 +1,10 @@
 package org.podhub.podhub.dto;
 
 import com.fasterxml.jackson.annotation.JsonView;
-import org.springframework.hateoas.server.core.Relation;
 
 import java.time.Instant;
 import java.util.List;
 
-@Relation(collectionRelation = "auth")
 public record AuthResponse(
         @JsonView(Views.Summary.class) String accessToken,
         @JsonView(Views.Summary.class) String refreshToken,

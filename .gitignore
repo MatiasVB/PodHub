@@ -38,6 +38,11 @@ out/
 ### VS Code ###
 .vscode/
 
+### Environment Variables ###
+.env
+.env.local
+.env.production
+
 CLAUDE.md
 HELP.md
 .gradle
@@ -76,5 +81,10 @@ out/
 
 ### VS Code ###
 .vscode/
+
+### Environment Variables ###
+.env
+.env.local
+.env.production
 
 CLAUDE.md

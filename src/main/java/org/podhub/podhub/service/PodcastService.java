@@ -3,6 +3,7 @@ package org.podhub.podhub.service;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.podhub.podhub.dto.PaginatedResponse;
+import org.podhub.podhub.dto.PodcastPatchRequest;
 import org.podhub.podhub.model.Podcast;
 import org.podhub.podhub.repository.PodcastRepository;
 import org.podhub.podhub.security.AuthenticationService;
@@ -218,6 +219,77 @@ public class PodcastService {
         Podcast saved = podcastRepository.save(updatedPodcast);
         log.info("Podcast updated successfully with id: {} by user: {}", saved.getId(), userId);
         return saved;
+    }
+
+    /**
+     * Partially updates a podcast with only the provided fields.
+     * Only the podcast creator can update their podcast.
+     *
+     * @param id Podcast ID to update
+     * @param patchRequest DTO with nullable fields to update
+     * @param userId ID of user making the request (must be creator)
+     * @return Updated podcast
+     * @throws ResourceNotFoundException if podcast not found
+     * @throws ForbiddenException if user is not the creator
+     * @throws ConflictException if slug already exists (when changing slug)
+     */
+    public Podcast patchPodcast(String id, PodcastPatchRequest patchRequest, String userId) {
+        log.debug("Patching podcast {} by user {}", id, userId);
+
+        // Verify ownership
+        validateOwnership(id, userId);
+
+        Podcast existing = podcastRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Podcast not found with id: " + id));
+
+        boolean changed = false;
+
+        // Apply only non-null fields
+        if (patchRequest.getTitle() != null) {
+            existing.setTitle(patchRequest.getTitle());
+            changed = true;
+        }
+        if (patchRequest.getSlug() != null) {
+            // Validate slug uniqueness if changed
+            if (!existing.getSlug().equals(patchRequest.getSlug())) {
+                if (podcastRepository.existsBySlug(patchRequest.getSlug())) {
+                    throw new ConflictException("Podcast with slug '" + patchRequest.getSlug() + "' already exists");
+                }
+            }
+            existing.setSlug(patchRequest.getSlug());
+            changed = true;
+        }
+        if (patchRequest.getDescription() != null) {
+            existing.setDescription(patchRequest.getDescription());
+            changed = true;
+        }
+        if (patchRequest.getLanguage() != null) {
+            existing.setLanguage(patchRequest.getLanguage());
+            changed = true;
+        }
+        if (patchRequest.getCategory() != null) {
+            existing.setCategory(patchRequest.getCategory());
+            changed = true;
+        }
+        if (patchRequest.getCoverImageUrl() != null) {
+            existing.setCoverImageUrl(patchRequest.getCoverImageUrl());
+            changed = true;
+        }
+        if (patchRequest.getIsPublic() != null) {
+            existing.setIsPublic(patchRequest.getIsPublic());
+            changed = true;
+        }
+
+        // Only update timestamp and save if something changed
+        if (changed) {
+            existing.setUpdatedAt(Instant.now());
+            Podcast saved = podcastRepository.save(existing);
+            log.info("Podcast {} patched successfully by user {}", id, userId);
+            return saved;
+        }
+
+        log.debug("No changes to apply for podcast {}", id);
+        return existing;
     }
 
     /**

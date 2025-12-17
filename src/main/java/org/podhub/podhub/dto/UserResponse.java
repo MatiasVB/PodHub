@@ -1,13 +1,11 @@
 package org.podhub.podhub.dto;
 
 import com.fasterxml.jackson.annotation.JsonView;
-import org.springframework.hateoas.server.core.Relation;
 import org.podhub.podhub.model.User;
 
 import java.time.Instant;
 import java.util.List;
 
-@Relation(collectionRelation = "users")
 public record UserResponse(
         @JsonView(Views.Summary.class) String id,
         @JsonView(Views.Summary.class) String username,

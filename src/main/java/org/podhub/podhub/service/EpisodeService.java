@@ -2,6 +2,7 @@ package org.podhub.podhub.service;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.podhub.podhub.dto.EpisodePatchRequest;
 import org.podhub.podhub.dto.PaginatedResponse;
 import org.podhub.podhub.exception.ForbiddenException;
 import org.podhub.podhub.exception.ResourceNotFoundException;
@@ -172,6 +173,74 @@ public class EpisodeService {
         Episode saved = episodeRepository.save(updated);
         log.info("Episode updated {} by user {}", id, userId);
         return saved;
+    }
+
+    /**
+     * Partially updates an episode with only the provided fields.
+     * Only the podcast owner can update episodes of their podcast.
+     *
+     * @param id Episode ID to update
+     * @param patchRequest DTO with nullable fields to update
+     * @param userId ID of user making the request (must be podcast owner)
+     * @return Updated episode
+     * @throws ResourceNotFoundException if episode not found
+     * @throws ForbiddenException if user is not the podcast owner
+     */
+    public Episode patchEpisode(String id, EpisodePatchRequest patchRequest, String userId) {
+        log.debug("Patching episode {} by user {}", id, userId);
+
+        Episode existing = episodeRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Episode not found with id: " + id));
+
+        // Verify podcast ownership
+        validatePodcastOwnership(existing.getPodcastId(), userId);
+
+        boolean changed = false;
+
+        // Apply only non-null fields
+        if (patchRequest.getTitle() != null) {
+            existing.setTitle(patchRequest.getTitle());
+            changed = true;
+        }
+        if (patchRequest.getSeason() != null) {
+            existing.setSeason(patchRequest.getSeason());
+            changed = true;
+        }
+        if (patchRequest.getNumber() != null) {
+            existing.setNumber(patchRequest.getNumber());
+            changed = true;
+        }
+        if (patchRequest.getDescription() != null) {
+            existing.setDescription(patchRequest.getDescription());
+            changed = true;
+        }
+        if (patchRequest.getTranscript() != null) {
+            existing.setTranscript(patchRequest.getTranscript());
+            changed = true;
+        }
+        if (patchRequest.getExplicit() != null) {
+            existing.setExplicit(patchRequest.getExplicit());
+            changed = true;
+        }
+        if (patchRequest.getIsPublic() != null) {
+            existing.setIsPublic(patchRequest.getIsPublic());
+            changed = true;
+        }
+        if (patchRequest.getPublishAt() != null) {
+            existing.setPublishAt(patchRequest.getPublishAt());
+            changed = true;
+        }
+
+        // Only update timestamp and save if something changed
+        if (changed) {
+            existing.setUpdatedAt(Instant.now());
+            Episode saved = episodeRepository.save(existing);
+            log.info("Episode {} patched successfully by user {}", id, userId);
+            return saved;
+        }
+
+        log.debug("No changes to apply for episode {}", id);
+        return existing;
     }
 
     /**

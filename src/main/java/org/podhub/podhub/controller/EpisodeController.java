@@ -1,8 +1,11 @@
 package org.podhub.podhub.controller;
 
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.podhub.podhub.dto.CountResponse;
+import org.podhub.podhub.dto.EpisodePatchRequest;
 import org.podhub.podhub.dto.PaginatedResponse;
 import org.podhub.podhub.exception.ResourceNotFoundException;
 import org.podhub.podhub.model.Episode;
@@ -20,6 +23,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.time.Instant;
 
+@Tag(name = "Episodes", description = "Episode management endpoints")
 @RestController
 @RequestMapping("/api/episodes")
 @RequiredArgsConstructor
@@ -75,6 +79,28 @@ public class EpisodeController {
         String userId = user.getId();
         Episode updated = episodeService.updateEpisode(id, episode, userId);
         return ResponseEntity.ok(updated);
+    }
+
+    /**
+     * PATCH /api/episodes/{id}
+     * Partially update an episode
+     * Only the podcast owner can update episodes
+     */
+    @PatchMapping("/{id}")
+    @PreAuthorize("hasAuthority('EPISODE_WRITE')")
+    @Operation(summary = "Partially update episode",
+               description = "Updates only the provided fields. Only the podcast owner can update.")
+    public ResponseEntity<Episode> patchEpisode(
+            @PathVariable String id,
+            @Valid @RequestBody EpisodePatchRequest patchRequest,
+            @AuthenticationPrincipal UserDetails userDetails) {
+
+        String email = userDetails.getUsername();
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+
+        Episode patched = episodeService.patchEpisode(id, patchRequest, user.getId());
+        return ResponseEntity.ok(patched);
     }
 
     /**

@@ -3,8 +3,10 @@ package org.podhub.podhub.service;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.podhub.podhub.dto.PaginatedResponse;
+import org.podhub.podhub.dto.UserPatchRequest;
 import org.podhub.podhub.exception.BadRequestException;
 import org.podhub.podhub.exception.ConflictException;
+import org.podhub.podhub.exception.ForbiddenException;
 import org.podhub.podhub.exception.ResourceNotFoundException;
 import org.podhub.podhub.model.User;
 import org.podhub.podhub.model.enums.UserRole;
@@ -151,6 +153,67 @@ public class UserService {
         User saved = userRepository.save(updated);
         log.info("User updated successfully with id: {}", saved.getId());
         return saved;
+    }
+
+    /**
+     * Partially updates a user with only the provided fields.
+     * Regular users can only update their own profile fields (displayName, avatarUrl, bio).
+     * Admins can update any user including status field.
+     *
+     * @param id User ID to update
+     * @param patchRequest DTO with nullable fields to update
+     * @param currentUserId ID of user making the request
+     * @param isAdmin Whether current user has admin role
+     * @return Updated user
+     * @throws ResourceNotFoundException if user not found
+     * @throws ForbiddenException if non-admin tries to update another user or status field
+     */
+    public User patchUser(String id, UserPatchRequest patchRequest, String currentUserId, boolean isAdmin) {
+        log.debug("Patching user {} by user {}", id, currentUserId);
+
+        // Authorization: User can update self, or admin can update anyone
+        if (!isAdmin && !id.equals(currentUserId)) {
+            throw new ForbiddenException("You can only update your own profile");
+        }
+
+        User existing = userRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found with id: " + id));
+
+        boolean changed = false;
+
+        // Apply only non-null fields
+        if (patchRequest.getDisplayName() != null) {
+            existing.setDisplayName(patchRequest.getDisplayName());
+            changed = true;
+        }
+        if (patchRequest.getAvatarUrl() != null) {
+            existing.setAvatarUrl(patchRequest.getAvatarUrl());
+            changed = true;
+        }
+        if (patchRequest.getBio() != null) {
+            existing.setBio(patchRequest.getBio());
+            changed = true;
+        }
+
+        // Status update is admin-only
+        if (patchRequest.getStatus() != null) {
+            if (!isAdmin) {
+                throw new ForbiddenException("Only admins can update user status");
+            }
+            existing.setStatus(patchRequest.getStatus());
+            changed = true;
+        }
+
+        // Only update timestamp and save if something changed
+        if (changed) {
+            existing.setUpdatedAt(Instant.now());
+            User saved = userRepository.save(existing);
+            log.info("User {} patched successfully by user {}", id, currentUserId);
+            return saved;
+        }
+
+        log.debug("No changes to apply for user {}", id);
+        return existing;
     }
 
     public void deleteUser(String id) {

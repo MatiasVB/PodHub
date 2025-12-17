@@ -1,8 +1,11 @@
 package org.podhub.podhub.controller;
 
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.podhub.podhub.dto.PaginatedResponse;
+import org.podhub.podhub.dto.UserPatchRequest;
 import org.podhub.podhub.exception.BadRequestException;
 import org.podhub.podhub.exception.ResourceNotFoundException;
 import org.podhub.podhub.model.Role;
@@ -14,10 +17,13 @@ import org.podhub.podhub.service.UserService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.Instant;
 
+@Tag(name = "Users", description = "User management endpoints")
 @RestController
 @RequestMapping("/api/users")
 @RequiredArgsConstructor
@@ -61,6 +67,32 @@ public class UserController {
         } catch (IllegalArgumentException e) {
             return ResponseEntity.notFound().build();
         }
+    }
+
+    /**
+     * PATCH /api/users/{id}
+     * Partially update a user profile
+     * Regular users can update their own profile (displayName, avatarUrl, bio)
+     * Admins can update any user including status field
+     */
+    @PatchMapping("/{id}")
+    @PreAuthorize("isAuthenticated()")
+    @Operation(summary = "Partially update user",
+               description = "Updates only the provided fields. Regular users can only update their own profile.")
+    public ResponseEntity<User> patchUser(
+            @PathVariable String id,
+            @Valid @RequestBody UserPatchRequest patchRequest,
+            @AuthenticationPrincipal UserDetails userDetails) {
+
+        String email = userDetails.getUsername();
+        User currentUser = userService.findByEmail(email)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+
+        boolean isAdmin = userDetails.getAuthorities().stream()
+                .anyMatch(auth -> auth.getAuthority().equals("ROLE_ADMIN"));
+
+        User patched = userService.patchUser(id, patchRequest, currentUser.getId(), isAdmin);
+        return ResponseEntity.ok(patched);
     }
 
     /**
